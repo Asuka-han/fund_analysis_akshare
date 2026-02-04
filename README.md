@@ -42,7 +42,7 @@
 
   | 配置文件/脚本 | 作用 |
   |---|---|
-  | **environment.yml** | conda 环境配置文件（推荐），定义完整环境（Python 版本 + 所有依赖） |
+  | **environment.yml** | conda 环境配置文件（推荐），定义完整环境（Python 版本 + 所有依赖） || **environment.yml** | conda 环境配置文件（推荐），定义完整环境（Python 版本   所有依赖） |
   | **requirements.txt**   | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
   | **scripts/create_env_conda.sh** | Unix/macOS 一键创建/更新 conda 环境脚本 |
   | **scripts/create_env_conda.ps1** | Windows PowerShell 一键创建/更新 conda 环境脚本 |
@@ -52,28 +52,28 @@
   - **Unix/macOS**: 运行 **bash scripts/create_env_conda.sh**
   - **Windows**: 运行 **.\scripts\create_env_conda.ps1**
   #### 手动设置
-  ```bash
+  ```bash   ”“bash
   # 创建并激活 conda 环境
   conda env create -f environment.yml
-  conda activate fund_analysis_env
+  conda activate fund_analysis_env激活fund_analysis_env
   ```
 
   ### 选项二：使用 Python venv（无 conda）
-  - **Windows**:
-  ```bash
+  - **Windows**:   - * *窗* *:
+  ```bash   ”“bash
   # 创建虚拟环境
   python -m venv .venv
   # 激活虚拟环境
   .venv\Scripts\activate
   # 安装依赖
-  pip install -r requirements.txt
+  pip install -r requirements.txtPIP install -r requirements.txtPIP install -r requirements.txt
   ```
   - **Unix/macOS**:
-  ```bash
+  ```bash   ”“bash
   # 1. 创建虚拟环境
   python3 -m venv .venv
   # 2. 激活虚拟环境
-  source .venv/bin/activate
+  source .venv/bin/activate源.venv / bin /激活
   # 3. 安装项目依赖
   pip3 install -r requirements.txt
   ```
