@@ -36,68 +36,65 @@
 - **解决问题**：
   - 解决手动收集基金数据效率低、易出错的问题
   - 提供统一的分析框架评估基金表现
-  - 支持交互式结果展示，提升可读性和可用性
+  ## 环境准备
+  ### 环境配置概述
+  本项目提供两种依赖管理方式（`conda` 推荐/`pip` 备用），并配套自动化脚本完成环境创建、更新和校验，支持 Windows/macOS/Linux 全平台。
 
-## 环境准备
-### 环境配置概述
-本项目提供两种依赖管理方式（`conda` 推荐/`pip` 备用），并配套自动化脚本完成环境创建、更新和校验，支持 Windows/macOS/Linux 全平台。
+  | 配置文件/脚本 | 作用 |
+  |---|---|
+  | `environment.yml` | conda 环境配置文件（推荐），定义完整环境（Python 版本 + 所有依赖） |
+  | `requirements.txt` | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
+  | `scripts/create_env_conda.sh` | Unix/macOS 一键创建/更新 conda 环境脚本 |
+  | `scripts/create_env_conda.ps1` | Windows PowerShell 一键创建/更新 conda 环境脚本 |
+  | `scripts/check_environment.py` | 全平台环境校验脚本，验证依赖版本和安装状态 |
 
-| 配置文件/脚本 | 作用 |
-|---|---|
-| `environment.yml` | conda 环境配置文件（推荐），定义完整环境（Python版本 + 所有依赖） |
-| `requirements.txt` | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
-| `scripts/create_env_conda.sh` | Unix/macOS 一键创建/更新 conda 环境脚本 |
-| `scripts/create_env_conda.ps1` | Windows PowerShell 一键创建/更新 conda 环境脚本 |
-| `scripts/check_environment.py` | 全平台环境校验脚本，验证依赖版本和安装状态 |
+  ### 选项一：使用 Conda（推荐）
+  - **Unix/macOS**: 运行 `bash scripts/create_env_conda.sh`
+  - **Windows**: 运行 `\.\scripts\create_env_conda.ps1`
+  #### 手动设置
+  ```bash
+  # 创建并激活 conda 环境
+  conda env create -f environment.yml
+  conda activate fund_analysis_env
+  ```
 
-### 选项一：使用 Conda（推荐）
-- **Unix/macOS**: 运行 `bash scripts/create_env_conda.sh`
-- **Windows**: 运行 `.\scripts\create_env_conda.ps1`
-#### 手动设置
-```bash
-# 创建并激活conda环境
-conda env create -f environment.yml
-conda activate fund_analysis_env
-```
+  ### 选项二：使用 Python venv（无 conda）
+  - **Windows**:
+  ```bash
+  # 创建虚拟环境
+  python -m venv .venv
+  # 激活虚拟环境
+  .venv\Scripts\activate
+  # 安装依赖
+  pip install -r requirements.txt
+  ```
+  - **Unix/macOS**:
+  ```bash
+  # 1. 创建虚拟环境
+  python3 -m venv .venv
+  # 2. 激活虚拟环境
+  source .venv/bin/activate
+  # 3. 安装项目依赖
+  pip3 install -r requirements.txt
+  ```
 
-### 选项二：使用 Python venv（无conda）
-- **Windows**:
-```bash
-# 创建虚拟环境
-python -m venv .venv
-# 激活虚拟环境
-.venv\Scripts\activate
-# 安装依赖
-pip install -r requirements.txt
-```
-- **Unix/macOS**:
-```bash
-# 1. 创建虚拟环境
-python3 -m venv .venv
-# 2. 激活虚拟环境
-source .venv/bin/activate
-# 3. 安装项目依赖
-pip3 install -r requirements.txt
-```
+  ### 环境校验
+  运行 `python scripts/check_environment.py`，确保所有依赖包版本符合预期。
 
+  ### Python 解释器选择
+  #### 选择 Conda 环境
+  1. 打开 VSCode，按下 `Ctrl+Shift+P`（Windows/Linux）或 `Cmd+Shift+P`（Mac）；
+  2. 输入「Python: Select Interpreter」并回车；
+  3. 在列表中找到 `fund_analysis_env`（conda 环境），格式通常为：
+    - Windows: `Python 3.12.0 ('fund_analysis_env': conda)`
+    - macOS/Linux: `~/miniconda3/envs/fund_analysis_env/bin/python`
+  4. 选择后，VSCode 会自动关联该环境的依赖，保证代码提示/运行一致。
+  #### 选择 pip 虚拟环境
+  若使用 pip 的 `.venv` 虚拟环境，解释器路径通常为：
+  - Windows: `.venv\Scripts\python.exe`
+  - macOS/Linux: `.venv/bin/python`
 
-
-
-### 环境校验
-运行 `python scripts/check_environment.py`，确保所有依赖包版本符合预期。
-
-### Python 解释器选择
-#### 选择 Conda 环境
-1. 打开 VSCode，按下 `Ctrl+Shift+P`（Windows/Linux）或 `Cmd+Shift+P`（Mac）；
-2. 输入「Python: Select Interpreter」并回车；
-3. 在列表中找到 `fund_analysis_env`（conda 环境），格式通常为：
-   - Windows: `Python 3.12.0 ('fund_analysis_env': conda)`
-   - macOS/Linux: `~/miniconda3/envs/fund_analysis_env/bin/python`
-4. 选择后，VSCode 会自动关联该环境的依赖，保证代码提示/运行一致。
-#### 选择 pip 虚拟环境
-若使用 pip 的 `.venv` 虚拟环境，解释器路径通常为：
-- Windows: `.venv\Scripts\python.exe`
-- macOS/Linux: `.venv/bin/python`
+  ## Docker 使用
 
 
 ## Docker 使用
