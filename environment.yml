@@ -1,0 +1,42 @@
+# environment.yml - 基金分析项目完整conda环境配置
+# 适配：本地开发、团队协作、跨平台（Windows/Linux/Mac）
+# 版本与requirements.txt完全对齐，优先用conda包（速度快/依赖全），pip补充conda滞后包
+name: fund_analysis_env
+channels:
+  - conda-forge  # 优先用conda-forge源（包更新快、全平台兼容）
+  - defaults     # 备用默认源
+dependencies:
+  # --------------------- 基础环境 ---------------------
+  - python=3.12                # 固定Python版本（避免版本兼容问题）
+  - pip>=23.0.0                # 升级pip，保证安装包兼容性
+  - setuptools>=65.0.0         # 补充：包管理工具，避免安装报错
+
+  # --------------------- 核心依赖（conda原生包） ---------------------
+  - pandas>=2.0.0              # 数据处理（conda包自带编译优化）
+  - numpy>=1.24.0              # 数值计算
+  - scipy>=1.11.0              # 科学计算（升级到与requirements.txt一致的1.11.0）
+  - sqlalchemy>=2.0.0          # 数据库ORM（新增，适配data/fund_data.db）
+  - openpyxl>=3.1.0            # Excel操作
+
+  # --------------------- 数据分析（conda原生包） ---------------------
+  - statsmodels>=0.14.0        # 统计模型（新增，基金夏普比率/最大回撤计算）
+
+  # --------------------- 可视化（conda原生包） ---------------------
+  - matplotlib>=3.7.0          # 基础静态图表
+  - seaborn>=0.12.0            # 图表美化
+  - jinja2>=3.1.0              # 新增：HTML报告模板渲染
+
+  # --------------------- 开发工具（conda原生包） ---------------------
+  - jupyter>=1.0.0             # 交互式调试
+  - pytest>=7.4.0              # 单元测试
+  - black>=23.9.0              # 代码格式化
+  - flake8>=6.0.0              # 代码检查
+  - python-dotenv>=1.2.1       # 新增：环境变量管理
+
+  # --------------------- pip补充包（conda版本滞后/仅PyPI有） ---------------------
+  - pip:
+    - akshare>=1.12.42         # 基金数据获取（指定稳定版，conda版更新慢）
+    - plotly>=5.17.0           # 交互式图表（与requirements.txt对齐到5.17.0）
+    # -------------- 部署可选包（按需启用）--------------
+    - pyinstaller>=6.0.0     # Windows打包exe用（仅部署时启用）
+    # - croniter>=1.4.1        # Docker定时任务用（仅容器化部署时启用）

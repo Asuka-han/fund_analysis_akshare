@@ -1,0 +1,17 @@
+services:
+  fund-analysis:
+    image: ${IMAGE_NAME:-fund-analysis:latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ${CONTAINER_NAME:-fund-analysis}
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+    volumes:
+      - ../data:/app/data
+      - ../reports:/app/reports
+    command: ["main"]
+    restart: "no"
+    tty: true
