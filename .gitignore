@@ -3,7 +3,7 @@
 dist/
 **/__pycache__/
 *.bak
-.specs/
+specs/
 
 
 

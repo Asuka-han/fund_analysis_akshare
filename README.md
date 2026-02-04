@@ -42,13 +42,13 @@
 ### 环境配置概述
 本项目提供两种依赖管理方式（`conda` 推荐/`pip` 备用），并配套自动化脚本完成环境创建、更新和校验，支持 Windows/macOS/Linux 全平台。
 
-| 配置文件/脚本      | 作用                                                            |
-|-------------------|-----------------------------------------------------------------|
-| `environment.yml` | conda 环境配置文件（推荐），定义完整环境（Python版本+所有依赖）      |
-| `requirements.txt`| pip 依赖清单（备用），仅包含Python包依赖，适配Docker/PyInstaller部署|
-| `scripts/create_env_conda.sh` | Unix/macOS 一键创建/更新conda环境脚本                 |
-| `scripts/create_env_conda.ps1` | Windows PowerShell 一键创建/更新conda环境脚本        |
-| `scripts/check_environment.py` | 全平台环境校验脚本，验证依赖版本和安装状态             |
+| 配置文件/脚本 | 作用 |
+|---|---|
+| `environment.yml` | conda 环境配置文件（推荐），定义完整环境（Python版本 + 所有依赖） |
+| `requirements.txt` | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
+| `scripts/create_env_conda.sh` | Unix/macOS 一键创建/更新 conda 环境脚本 |
+| `scripts/create_env_conda.ps1` | Windows PowerShell 一键创建/更新 conda 环境脚本 |
+| `scripts/check_environment.py` | 全平台环境校验脚本，验证依赖版本和安装状态 |
 
 ### 选项一：使用 Conda（推荐）
 - **Unix/macOS**: 运行 `bash scripts/create_env_conda.sh`
