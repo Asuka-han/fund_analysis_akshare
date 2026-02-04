@@ -43,7 +43,7 @@
   | 配置文件/脚本 | 作用 |
   |---|---|
   | **environment.yml** | conda 环境配置文件（推荐），定义完整环境（Python 版本 + 所有依赖） |
-  | **requirements.txt** | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
+  | **requirements.txt**   | pip 依赖清单（备用），仅包含 Python 包依赖，适配 Docker/PyInstaller 部署 |
   | **scripts/create_env_conda.sh** | Unix/macOS 一键创建/更新 conda 环境脚本 |
   | **scripts/create_env_conda.ps1** | Windows PowerShell 一键创建/更新 conda 环境脚本 |
   | **scripts/check_environment.py** | 全平台环境校验脚本，验证依赖版本和安装状态 |
