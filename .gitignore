@@ -1,2 +1,11 @@
-.vscode/*.exe
+.vscode/
+*.exe
 dist/
+**/__pycache__/
+*.bak
+.specs/
+
+
+
+
+
