@@ -39,6 +39,7 @@ def _patch_conda_metadata_handling():
         # 动态导入PyInstaller相关模块
         from PyInstaller.utils.hooks import collect_all
         import inspect
+        import pkg_resources
         
         # 尝试修补pkg_resources相关逻辑
         def safe_get_metadata(name):
