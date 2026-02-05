@@ -13,9 +13,10 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from itertools import cycle
+from ..utils.logger import get_logger
 
 warnings.filterwarnings('ignore')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _safe_savefig(fig: plt.Figure, filepath: Path) -> None:
@@ -892,13 +893,13 @@ def main():
     benchmark_nav = pd.Series((1 + benchmark_returns).cumprod(), index=dates)
     
     # 测试净值曲线图（示例基金不保存图片）
-    print("测试净值曲线图...")
+    logger.info("测试净值曲线图")
     fig1 = visualizer.plot_nav_curve(nav_series, '示例基金', benchmark_nav)
     if fig1:
         plt.show(block=False)
     
     # 测试回撤图（示例基金不保存图片）
-    print("测试回撤图...")
+    logger.info("测试回撤图")
     fig2 = visualizer.plot_drawdown_chart(nav_series, '示例基金')
     if fig2:
         plt.show(block=False)
@@ -909,13 +910,13 @@ def main():
     returns_df = pd.DataFrame({'holding_return': holding_returns})
     
     # 测试收益率分布图（示例基金不保存图片）
-    print("测试收益率分布图...")
+    logger.info("测试收益率分布图")
     fig3 = visualizer.plot_return_distribution(returns_df, 30, '示例基金')
     if fig3:
         plt.show(block=False)
     
     # 测试交互式图表
-    print("测试交互式图表...")
+    logger.info("测试交互式图表")
     interactive_fig = visualizer.create_interactive_chart(nav_series, '示例基金')
     if interactive_fig:
         interactive_fig.show()

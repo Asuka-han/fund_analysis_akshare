@@ -18,7 +18,6 @@ import sys
 import os
 import argparse
 import logging
-import io
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
@@ -40,31 +39,20 @@ from src.analysis.holding_simulation import HoldingSimulation
 from src.analysis.visualization import FundVisualizer
 from src.utils.database import fund_db
 from src.utils.output_manager import OutputManager, get_output_manager
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
 import config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 统一时间戳开关（本文件仅此一处）
 USE_TIMESTAMP = True
 
 
-def configure_logging(log_path: Path, verbose: bool = False):
-    """配置日志输出到控制台和指定文件"""
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(safe_stdout),
-            logging.FileHandler(str(log_path), encoding='utf-8')
-        ],
-        force=True
-    )
+def configure_logging(log_dir: Path, verbose: bool = False):
+    """配置日志输出到控制台和文件"""
+    level = logging.DEBUG if verbose else logging.INFO
+    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="db_analysis")
 
 
 def setup_output_directories(args):
@@ -95,37 +83,37 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
     
     # 分析基金
     if fund_ids:
-        print(f"\n📈 分析基金绩效（{len(fund_ids)} 只）...")
+        logger.info("分析基金绩效（%s 只）", len(fund_ids))
         for fund_id in fund_ids:
             try:
-                print(f"  分析基金: {fund_id}")
+                logger.info("分析基金: %s", fund_id)
                 performance = analyzer.analyze_fund_performance(fund_id)
                 if performance:
                     results[fund_id] = performance
-                    print(f"    ✓ 完成: 总收益率 {performance['total_return']:.2%}")
+                    logger.info("完成: 总收益率 %.2f%%", performance['total_return'] * 100)
                 else:
-                    print(f"    ✗ 失败: 数据不足或计算错误")
+                    logger.warning("失败: 数据不足或计算错误")
             except Exception as e:
                 logger.error(f"分析基金 {fund_id} 失败: {e}")
     
     # 分析指数
     if index_ids:
-        print(f"\n📊 分析指数绩效（{len(index_ids)} 个）...")
+        logger.info("分析指数绩效（%s 个）", len(index_ids))
         for index_id in index_ids:
             try:
-                print(f"  分析指数: {index_id}")
+                logger.info("分析指数: %s", index_id)
                 performance = analyzer.analyze_index_performance(index_id)
                 if performance:
                     results[f"INDEX_{index_id}"] = performance
-                    print(f"    ✓ 完成: 总收益率 {performance['total_return']:.2%}")
+                    logger.info("完成: 总收益率 %.2f%%", performance['total_return'] * 100)
                 else:
-                    print(f"    ✗ 失败: 数据不足或计算错误")
+                    logger.warning("失败: 数据不足或计算错误")
             except Exception as e:
                 logger.error(f"分析指数 {index_id} 失败: {e}")
 
     # 保存到Excel（使用输出管理器）
     if results:
-        print(f"\n💾 保存绩效结果...")
+        logger.info("保存绩效结果")
         funds_df = pd.DataFrame([v for k, v in results.items() if not k.startswith('INDEX_')])
         indices_df = pd.DataFrame([v for k, v in results.items() if k.startswith('INDEX_')])
         
@@ -135,9 +123,9 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
         success = analyzer.save_performance_to_excel(funds_df, indices_df, str(excel_path))
         
         if success:
-            print(f"   绩效结果已保存: {excel_path}")
+            logger.info("绩效结果已保存: %s", excel_path)
         else:
-            print(f"   保存绩效结果失败")
+            logger.error("保存绩效结果失败")
 
         # 保存每只基金的详细绩效表格（产品及基准收益率/周收益率曲线/月度收益率）
         if fund_ids:
@@ -153,7 +141,7 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
                         comparison_indices=comparison_indices
                     )
                     if ok:
-                        print(f"   详细绩效已保存: {detail_path.name}")
+                        logger.info("详细绩效已保存: %s", detail_path.name)
                 except Exception as e:
                     logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}")
     
@@ -173,13 +161,13 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
     all_results = {}
     
     if not fund_ids:
-        print("没有指定基金，跳过持有期分析")
+        logger.info("没有指定基金，跳过持有期分析")
         return all_results
     
-    print(f"\n📊 分析持有期收益（{len(periods)} 个持有期）...")
+    logger.info("分析持有期收益（%s 个持有期）", len(periods))
 
     for fund_id in fund_ids:
-        print(f"\n🔍 分析基金持有期: {fund_id}")
+        logger.info("分析基金持有期: %s", fund_id)
         
         try:
             # 获取基金名称用于图表
@@ -195,20 +183,23 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
             )
             
             if not analysis:
-                print(f"  ✗ 持有期分析失败: 数据不足")
+                logger.warning("持有期分析失败: 数据不足")
                 continue
             
             all_results[fund_id] = analysis
             
             # 显示汇总信息
             summary = analysis.get('summary', {})
-            print(f"  ✓ 持有期分析完成:")
+            logger.info("持有期分析完成")
             for holding_days in periods:
                 if holding_days in summary:
                     stats = summary[holding_days]
-                    print(f"    {holding_days}天: "
-                          f"平均{stats['mean_return']:.2%}, "
-                          f"胜率{stats['win_rate']:.2%}")
+                    logger.info(
+                        "%s天: 平均%.2f%%, 胜率%.2f%%",
+                        holding_days,
+                        stats['mean_return'] * 100,
+                        stats['win_rate'] * 100,
+                    )
             
             # 为这个基金创建专门的目录（如果启用）
             if organize_by_fund:
@@ -217,7 +208,7 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
                 create_fund_output_dirs(fund_id, 'db_analysis')
             
             # 生成持有期分布图
-            print(f"  🎨 生成持有期分布图...")
+            logger.info("生成持有期分布图")
             simulation_results = analysis.get('simulation_results', {})
             
             for holding_days in periods:
@@ -252,7 +243,7 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
                     if fig:
                         fig.savefig(output_path, dpi=300, bbox_inches='tight')
                         plt.close(fig)
-                        print(f"    ✓ 持有期{holding_days}天: {output_path.name}")
+                        logger.info("持有期%s天: %s", holding_days, output_path.name)
                 
                 # 生成交互图
                 if output_html and not results_df.empty:
@@ -264,16 +255,16 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
                             fund_name, 'holding_dist', holding_days
                         )
                         interactive_fig.write_html(str(html_path))
-                        print(f"    ✓ 交互图{holding_days}天: {html_path.name}")
+                        logger.info("交互图%s天: %s", holding_days, html_path.name)
             
             # 保存模拟结果到Excel（使用输出管理器）
             excel_path = output_mgr.get_path('excel_holding', f'holding_analysis_{fund_id}.xlsx')
             simulator.save_simulation_results(analysis, str(excel_path))
-            print(f"  💾 持有期结果已保存: {excel_path.name}")
+            logger.info("持有期结果已保存: %s", excel_path.name)
             
         except Exception as e:
             logger.error(f"分析基金 {fund_id} 持有期失败: {e}")
-            print(f"  ✗ 持有期分析失败: {e}")
+            logger.error("持有期分析失败: %s", e)
 
     return all_results
 
@@ -286,14 +277,14 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
     if not fund_ids:
         return
 
-    print(f"\n🎨 生成净值曲线和回撤图...")
+    logger.info("生成净值曲线和回撤图")
 
     for fund_id in fund_ids:
         try:
             # 获取基金数据
             df = fund_db.get_fund_daily_data(fund_id)
             if df.empty:
-                print(f"  ✗ {fund_id}: 没有数据")
+                logger.warning("%s: 没有数据", fund_id)
                 continue
 
             # 获取基金名称
@@ -307,7 +298,7 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
             else:
                 nav_series = df['nav'].dropna()
 
-            print(f"  📊 {fund_name}: {len(nav_series)} 个数据点")
+            logger.info("%s: %s 个数据点", fund_name, len(nav_series))
 
             # 为这个基金创建专门的目录（如果启用）
             if organize_by_fund:
@@ -328,7 +319,7 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
             if fig:
                 fig.savefig(nav_output_path, dpi=300, bbox_inches='tight')
                 plt.close(fig)
-                print(f"    ✓ 净值曲线: {nav_output_path.name}")
+                logger.info("净值曲线: %s", nav_output_path.name)
 
             # 交互式净值曲线
             if output_html:
@@ -338,7 +329,7 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
                 if interactive_nav:
                     html_path = output_mgr.get_interactive_path(fund_name, 'nav_curve')
                     interactive_nav.write_html(str(html_path))
-                    print(f"    ✓ 交互净值曲线: {html_path.name}")
+                    logger.info("交互净值曲线: %s", html_path.name)
 
             # 生成回撤图
             drawdown_output_path = output_mgr.get_fund_plot_path(fund_name, 'drawdown')
@@ -348,7 +339,7 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
             if fig:
                 fig.savefig(drawdown_output_path, dpi=300, bbox_inches='tight')
                 plt.close(fig)
-                print(f"    ✓ 回撤图: {drawdown_output_path.name}")
+                logger.info("回撤图: %s", drawdown_output_path.name)
 
             # 生成交互式净值+回撤图
             if output_html:
@@ -356,13 +347,13 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
                 if interactive_drawdown:
                     html_path = output_mgr.get_interactive_path(fund_name, 'nav_drawdown')
                     interactive_drawdown.write_html(str(html_path))
-                    print(f"    ✓ 交互净值回撤图: {html_path.name}")
+                    logger.info("交互净值回撤图: %s", html_path.name)
 
-            print(f"  ✓ {fund_name}: 图表生成完成")
+            logger.info("%s: 图表生成完成", fund_name)
 
         except Exception as e:
             logger.error(f"生成基金 {fund_id} 图表失败: {e}")
-            print(f"  ✗ {fund_id}: 图表生成失败")
+            logger.error("%s: 图表生成失败", fund_id)
 
 
 def generate_performance_comparison(fund_ids, output_mgr):
@@ -371,7 +362,7 @@ def generate_performance_comparison(fund_ids, output_mgr):
         return
 
     try:
-        print(f"\n📊 生成绩效指标对比图...")
+        logger.info("生成绩效指标对比图")
 
         # 获取绩效数据
         analyzer = PerformanceAnalyzer()
@@ -383,7 +374,7 @@ def generate_performance_comparison(fund_ids, output_mgr):
                 performance_data.append(perf)
 
         if len(performance_data) < 2:
-            print("   ⚠️  基金数量不足，跳过绩效对比")
+            logger.warning("基金数量不足，跳过绩效对比")
             return
 
         perf_df = pd.DataFrame(performance_data)
@@ -398,11 +389,11 @@ def generate_performance_comparison(fund_ids, output_mgr):
         if fig:
             fig.savefig(output_path, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"  ✓ 绩效对比图: {output_path.name}")
+            logger.info("绩效对比图: %s", output_path.name)
 
     except Exception as e:
         logger.error(f"生成绩效对比图失败: {e}")
-        print(f"  ✗ 绩效对比图生成失败: {e}")
+        logger.error("绩效对比图生成失败: %s", e)
 
 
 def create_summary_report(output_mgr, fund_count, index_count, holding_count):
@@ -445,7 +436,7 @@ def create_summary_report(output_mgr, fund_count, index_count, holding_count):
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(summary)
 
-        print(f"📝 分析摘要已保存: {report_path}")
+        logger.info("分析摘要已保存: %s", report_path)
 
     except Exception as e:
         logger.error(f"创建摘要报告失败: {e}")
@@ -485,21 +476,21 @@ def main():
 
     args = parser.parse_args()
 
-    print("🚀 开始数据库分析（增强版）")
-    print("=" * 60)
+    # 配置日志到统一日志目录
+    configure_logging(LogConfig.resolve_log_dir('db_analysis', config.REPORTS_DIR), args.verbose)
+
+    logger.info("开始数据库分析（增强版）")
+    logger.info("=" * 60)
 
     # 检查数据库
     db_path = Path(config.DATABASE_PATH)
     if not db_path.exists():
-        print(f"❌ 数据库不存在: {db_path}")
-        print("   请先运行 update_db.py 或 main.py 获取数据")
+        logger.error("数据库不存在: %s", db_path)
+        logger.error("请先运行 update_db.py 或 main.py 获取数据")
         return 1
 
     # 设置输出管理器 - 恢复使用setup_output_directories函数
     output_mgr = setup_output_directories(args)
-
-    # 配置日志到指定目录
-    configure_logging(output_mgr.get_path('logs', 'run_analysis.log'), args.verbose)
 
     # 获取数据列表
     def get_all_fund_ids():
@@ -514,12 +505,12 @@ def main():
     if args.all:
         args.funds = get_all_fund_ids()
         args.indices = get_all_index_ids()
-        print(f"将分析所有基金: {len(args.funds) if args.funds else 0} 只")
-        print(f"将分析所有指数: {len(args.indices) if args.indices else 0} 个")
+        logger.info("将分析所有基金: %s 只", len(args.funds) if args.funds else 0)
+        logger.info("将分析所有指数: %s 个", len(args.indices) if args.indices else 0)
     elif not args.funds and not args.indices:
         # 默认分析所有基金
         args.funds = get_all_fund_ids()
-        print(f"将分析所有基金: {len(args.funds) if args.funds else 0} 只")
+        logger.info("将分析所有基金: %s 只", len(args.funds) if args.funds else 0)
 
     # 处理持有期参数
     if args.periods is None:
@@ -569,20 +560,20 @@ def main():
     )
 
     # 输出总结
-    print("\n" + "=" * 60)
-    print("✅ 数据库分析完成！")
-    print(f"   输出目录: {output_mgr.dirs['base'].absolute()}")
-    print(f"   分析基金: {len(args.funds) if args.funds else 0} 只")
-    print(f"   分析指数: {len(args.indices) if args.indices else 0} 个")
-    print(f"   持有期分析: {len(holding_results)} 只基金")
+    logger.info("=" * 60)
+    logger.info("数据库分析完成")
+    logger.info("输出目录: %s", output_mgr.dirs['base'].absolute())
+    logger.info("分析基金: %s 只", len(args.funds) if args.funds else 0)
+    logger.info("分析指数: %s 个", len(args.indices) if args.indices else 0)
+    logger.info("持有期分析: %s 只基金", len(holding_results))
 
     if args.output_html:
-        print(f"   交互式图表: 已生成（见 interactive/ 目录）")
+        logger.info("交互式图表: 已生成（见 interactive/ 目录）")
 
     if args.organize_by_fund:
-        print(f"   文件组织: 按基金分类")
+        logger.info("文件组织: 按基金分类")
 
-    print("\n📁 查看输出:")
+    logger.info("查看输出:")
     output_mgr.print_summary()
 
     return 0

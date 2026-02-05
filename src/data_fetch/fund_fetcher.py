@@ -17,14 +17,16 @@ try:
 except Exception:
     _FETCH_YEARS = 3
 
-logger = logging.getLogger(__name__)
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # 直接导入基金代码管理器
 try:
     from src.utils.fund_code_manager import fund_code_manager
-    logger.info("✅ 成功导入基金代码管理器")
+    logger.info("成功导入基金代码管理器")
 except ImportError as e:
-    logger.error(f"❌ 导入基金代码管理器失败: {e}")
+    logger.error(f"导入基金代码管理器失败: {e}")
     # 创建简单的回退方案
     class SimpleFundCodeManager:
         @staticmethod
@@ -57,7 +59,7 @@ except ImportError as e:
             }
     
     fund_code_manager = SimpleFundCodeManager()
-    logger.info("⚠️ 使用简单基金代码管理器")
+    logger.warning("使用简单基金代码管理器")
 
 
 # 这些代码用于测试和演示，实际使用时需要替换为有效的基金代码
@@ -75,12 +77,12 @@ class FundDataFetcher:
         """初始化数据获取器"""
         self.fund_codes = []
         self.data_cache = {}
-        logger.info("✅ 基金数据获取器初始化完成")
+        logger.info("基金数据获取器初始化完成")
     
     def set_fund_codes(self, codes: List[str]):
         """设置要获取数据的基金代码列表"""
         self.fund_codes = codes
-        logger.info(f"📊 已设置基金代码: {codes}")
+        logger.info(f"已设置基金代码: {codes}")
     
     def fetch_fund_data(self, fund_code: str, 
                        start_date: Optional[str] = None, 
@@ -103,14 +105,14 @@ class FundDataFetcher:
             original_fund_code = fund_code
             clean_fund_code = fund_code_manager.to_akshare_format(fund_code)
             
-            logger.info(f"🔍 正在获取基金 {original_fund_code} (AKShare格式: {clean_fund_code}) 的数据...")
+            logger.info(f"正在获取基金 {original_fund_code} (AKShare格式: {clean_fund_code}) 的数据")
             
             # 使用akshare获取基金净值数据
             # 根据文档，参数应该是symbol而不是fund
             fund_net_value_data = ak.fund_open_fund_info_em(symbol=clean_fund_code, indicator="单位净值走势")
             
             if fund_net_value_data.empty:
-                logger.warning(f"⚠️ 基金 {original_fund_code} 没有获取到净值数据")
+                logger.warning(f"基金 {original_fund_code} 没有获取到净值数据")
                 return None
             
             # 重命名列名以符合内部标准
@@ -125,7 +127,7 @@ class FundDataFetcher:
                 # 如果已经是英文列名，则保持不变
                 pass
             else:
-                logger.error(f"❌ 无法识别基金 {original_fund_code} 的列名格式")
+                logger.error(f"无法识别基金 {original_fund_code} 的列名格式")
                 return None
             
             # 确保日期列是datetime类型
@@ -144,7 +146,7 @@ class FundDataFetcher:
             ].copy()
             
             if fund_net_value_data.empty:
-                logger.warning(f"⚠️ 基金 {original_fund_code} 在指定日期范围内没有数据")
+                logger.warning(f"基金 {original_fund_code} 在指定日期范围内没有数据")
                 return None
             
             # 按日期排序
@@ -153,7 +155,7 @@ class FundDataFetcher:
             
             # 确保累计净值列存在，如果不存在则使用单位净值
             if 'cumulative_nav' not in fund_net_value_data.columns or fund_net_value_data['cumulative_nav'].isna().all():
-                logger.warning(f"⚠️ 基金 {original_fund_code} 缺少累计净值数据，使用单位净值替代")
+                logger.warning(f"基金 {original_fund_code} 缺少累计净值数据，使用单位净值替代")
                 fund_net_value_data['cumulative_nav'] = fund_net_value_data['nav']
             
             # 如果请求获取资产规模数据，则获取并合并
@@ -163,11 +165,11 @@ class FundDataFetcher:
                     # 合并资产规模数据到净值数据
                     fund_net_value_data = self._merge_asset_size_data(fund_net_value_data, asset_size_data)
                 else:
-                    logger.warning(f"⚠️ 基金 {original_fund_code} 无法获取资产规模数据，将在净值数据中设置默认值")
+                    logger.warning(f"基金 {original_fund_code} 无法获取资产规模数据，将在净值数据中设置默认值")
                     # 添加资产规模列并填充默认值
                     fund_net_value_data['asset_size'] = None
             
-            logger.info(f"✅ 基金 {original_fund_code} 数据获取成功，共 {len(fund_net_value_data)} 条记录")
+            logger.info(f"基金 {original_fund_code} 数据获取成功，共 {len(fund_net_value_data)} 条记录")
             
             # 添加基金代码列（使用原始传入格式）
             fund_net_value_data['fund_id'] = original_fund_code
@@ -175,7 +177,7 @@ class FundDataFetcher:
             return fund_net_value_data
             
         except Exception as e:
-            logger.error(f"❌ 获取基金 {fund_code} 数据失败: {e}")
+            logger.error(f"获取基金 {fund_code} 数据失败: {e}")
             return None
     
     def _fetch_fund_asset_size(self, fund_code: str) -> Optional[pd.DataFrame]:
@@ -189,14 +191,14 @@ class FundDataFetcher:
             DataFrame包含资产规模数据，包含'date'和'asset_size'列
         """
         try:
-            logger.info(f"📊 正在获取基金 {fund_code} 的资产规模数据...")
+            logger.info(f"正在获取基金 {fund_code} 的资产规模数据")
             
             # 尝试获取基金规模数据（通常为季度数据）
             # 使用 ak.fund_fund_info_em 获取基金基本信息，其中包含资产规模
             fund_info = ak.fund_fund_info_em(symbol=fund_code)
             
             if fund_info.empty:
-                logger.warning(f"⚠️ 基金 {fund_code} 没有获取到资产规模数据")
+                logger.warning(f"基金 {fund_code} 没有获取到资产规模数据")
                 return None
             
             # 查找包含资产规模的列
@@ -207,7 +209,7 @@ class FundDataFetcher:
                     break
             
             if asset_size_col is None:
-                logger.warning(f"⚠️ 基金 {fund_code} 的资产规模列未找到")
+                logger.warning(f"基金 {fund_code} 的资产规模列未找到")
                 return None
             
             # 提取资产规模数据
@@ -242,11 +244,11 @@ class FundDataFetcher:
             asset_size_data.sort_values(by='date', inplace=True)
             asset_size_data.reset_index(drop=True, inplace=True)
             
-            logger.info(f"✅ 基金 {fund_code} 资产规模数据获取成功，共 {len(asset_size_data)} 条记录")
+            logger.info(f"基金 {fund_code} 资产规模数据获取成功，共 {len(asset_size_data)} 条记录")
             return asset_size_data
             
         except Exception as e:
-            logger.warning(f"⚠️ 获取基金 {fund_code} 资产规模数据失败: {e}")
+            logger.warning(f"获取基金 {fund_code} 资产规模数据失败: {e}")
             # 尝试使用其他接口获取资产规模数据
             try:
                 # 使用基金基本信息接口
@@ -265,7 +267,7 @@ class FundDataFetcher:
                                     'date': [pd.to_datetime(today)],
                                     'asset_size': [convert_asset_size(asset_size)]
                                 })
-                                logger.info(f"✅ 基金 {fund_code} 从基本信息获取到资产规模: {asset_size}")
+                                logger.info(f"基金 {fund_code} 从基本信息获取到资产规模: {asset_size}")
                                 return asset_size_data
             except Exception as inner_e:
                 logger.debug(f"从备用接口获取资产规模也失败: {inner_e}")
@@ -321,7 +323,7 @@ class FundDataFetcher:
         results = {}
         
         for fund_code in fund_codes:
-            logger.info(f"📊 正在获取基金 {fund_code} 的数据...")
+            logger.info(f"正在获取基金 {fund_code} 的数据")
             
             # 获取单个基金数据
             fund_data = self.fetch_fund_data(fund_code, include_asset_size=include_asset_size)
@@ -332,12 +334,12 @@ class FundDataFetcher:
                 # 添加到缓存
                 self.data_cache[fund_code] = fund_data
             else:
-                logger.warning(f"⚠️ 基金 {fund_code} 数据获取失败")
+                logger.warning(f"基金 {fund_code} 数据获取失败")
             
             # 添加延时避免过于频繁的API调用
             time.sleep(0.5)
         
-        logger.info(f"✅ 共成功获取 {len(results)} 只基金的数据")
+        logger.info(f"共成功获取 {len(results)} 只基金的数据")
         return results
     
     def get_fund_info(self, fund_code: str) -> dict:
@@ -355,7 +357,7 @@ class FundDataFetcher:
             original_fund_code = fund_code
             clean_fund_code = fund_code_manager.to_akshare_format(fund_code)
             
-            logger.info(f"🔍 正在获取基金 {original_fund_code} 的基本信息...")
+            logger.info(f"正在获取基金 {original_fund_code} 的基本信息")
             
             # 使用正确的接口获取基金基本信息
             fund_info_df = ak.fund_name_em()
@@ -385,11 +387,11 @@ class FundDataFetcher:
                     result['asset_size'] = info_dict.get(asset_key)
                     break
             
-            logger.info(f"✅ 成功获取基金 {original_fund_code} 的基本信息")
+            logger.info(f"成功获取基金 {original_fund_code} 的基本信息")
             return result
             
         except Exception as e:
-            logger.error(f"❌ 获取基金 {fund_code} 基本信息失败: {e}")
+            logger.error(f"获取基金 {fund_code} 基本信息失败: {e}")
             return {}
     
 if __name__ == "__main__":
@@ -397,26 +399,30 @@ if __name__ == "__main__":
     fetcher = FundDataFetcher()
     test_codes = SAMPLE_FUND_CODES[:2]  # 只测试前两个基金
     
-    print("测试基金数据获取（包含资产规模）:")
-    print("="*60)
+    logger.info("测试基金数据获取（包含资产规模）")
+    logger.info("=" * 60)
     
     # 测试获取基金数据（包含资产规模）
     results = fetcher.fetch_all_funds_data(test_codes, include_asset_size=True)
     
     for code, data in results.items():
-        print(f"\n基金 {code} 的前5条数据:")
-        print(data[['date', 'nav', 'cumulative_nav', 'asset_size']].head() if 'asset_size' in data.columns else data.head())
+        logger.info("基金 %s 的前5条数据:", code)
+        logger.info("\n%s", data[['date', 'nav', 'cumulative_nav', 'asset_size']].head() if 'asset_size' in data.columns else data.head())
         
         # 如果有资产规模数据，显示统计信息
         if 'asset_size' in data.columns:
             asset_stats = data['asset_size'].describe()
-            print(f"资产规模统计: 非空值 {data['asset_size'].count()} 条，平均值 {asset_stats.get('mean', 'N/A'):.2f}")
+            logger.info(
+                "资产规模统计: 非空值 %s 条，平均值 %.2f",
+                data['asset_size'].count(),
+                asset_stats.get('mean', float('nan')),
+            )
     
     # 测试获取基金基本信息
-    print("\n" + "="*60)
-    print("测试获取基金基本信息:")
+    logger.info("=" * 60)
+    logger.info("测试获取基金基本信息")
     for code in test_codes:
         fund_info = fetcher.get_fund_info(code)
-        print(f"\n基金 {code} 的基本信息:")
+        logger.info("基金 %s 的基本信息:", code)
         for key, value in fund_info.items():
-            print(f"  {key}: {value}")
+            logger.info("  %s: %s", key, value)

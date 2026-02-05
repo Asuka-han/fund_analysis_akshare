@@ -41,25 +41,14 @@ from src.analysis.holding_simulation import HoldingSimulation
 from src.analysis.visualization import FundVisualizer
 from src.utils.database import fund_db
 from src.utils.output_manager import get_output_manager
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
 import config
 
 # 输出管理器（用于日志与文件落盘）
 OUTPUT_MANAGER = get_output_manager('excel_analysis', base_dir=config.REPORTS_DIR, use_timestamp=True)
 
-# 配置日志
-log_file = OUTPUT_MANAGER.get_path('logs', 'excel_analysis.log')
-log_file.parent.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(str(log_file), encoding='utf-8')
-    ],
-    force=True
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def summarize_holding_results(holding_results):
@@ -143,7 +132,7 @@ def read_excel_data(file_path, sheet_name=None, fund_code=None):
     - date列应为日期格式
     """
     try:
-        print(f"📖 读取Excel文件: {file_path}")
+        logger.info("读取Excel文件: %s", file_path)
         
         # 读取Excel
         if sheet_name:
@@ -153,8 +142,8 @@ def read_excel_data(file_path, sheet_name=None, fund_code=None):
             xl = pd.ExcelFile(file_path)
             df = xl.parse(xl.sheet_names[0])
         
-        print(f"   原始数据形状: {df.shape}")
-        print(f"   列名: {list(df.columns)}")
+        logger.info("原始数据形状: %s", df.shape)
+        logger.info("列名: %s", list(df.columns))
         
         # 标准化列名（不区分大小写）
         column_mapping = {}
@@ -173,7 +162,7 @@ def read_excel_data(file_path, sheet_name=None, fund_code=None):
         
         if column_mapping:
             df = df.rename(columns=column_mapping)
-            print(f"   标准化后列名: {list(df.columns)}")
+            logger.info("标准化后列名: %s", list(df.columns))
         
         # 检查必要列
         if 'date' not in df.columns:
@@ -200,13 +189,18 @@ def read_excel_data(file_path, sheet_name=None, fund_code=None):
         if 'cumulative_nav' not in df.columns and 'nav' in df.columns:
             # 如果没有累计净值，使用单位净值
             df['cumulative_nav'] = df['nav']
-            print("   ⚠️  使用单位净值作为累计净值")
+            logger.warning("使用单位净值作为累计净值")
         elif 'nav' not in df.columns and 'cumulative_nav' in df.columns:
             # 如果没有单位净值，使用累计净值
             df['nav'] = df['cumulative_nav']
-            print("   ⚠️  使用累计净值作为单位净值")
+            logger.warning("使用累计净值作为单位净值")
         
-        print(f"   处理后数据: {len(df)} 行，时间范围: {df['date'].min()} 到 {df['date'].max()}")
+        logger.info(
+            "处理后数据: %s 行，时间范围: %s 到 %s",
+            len(df),
+            df['date'].min(),
+            df['date'].max(),
+        )
         
         return df
         
@@ -218,7 +212,7 @@ def read_excel_data(file_path, sheet_name=None, fund_code=None):
 def analyze_excel_fund(df, fund_code, output_dir, analyzer, visualizer, periods, output_manager=None):
     """分析单个Excel基金"""
     try:
-        print(f"\n🔍 分析基金: {fund_code}")
+        logger.info("分析基金: %s", fund_code)
         
         # 提取净值序列
         if 'cumulative_nav' in df.columns and not df['cumulative_nav'].isna().all():
@@ -228,14 +222,14 @@ def analyze_excel_fund(df, fund_code, output_dir, analyzer, visualizer, periods,
             nav_series = df.set_index('date')['nav'].dropna()
             nav_type = 'nav'
         
-        print(f"   净值类型: {nav_type}, 数据点数: {len(nav_series)}")
+        logger.info("净值类型: %s, 数据点数: %s", nav_type, len(nav_series))
         
         if len(nav_series) < 2:
-            print(f"   ✗ 数据不足，至少需要2个数据点")
+            logger.warning("数据不足，至少需要2个数据点")
             return None
         
         # 计算绩效指标
-        print(f"   📊 计算绩效指标...")
+        logger.info("计算绩效指标")
         total_return = analyzer.calculate_total_return(nav_series)
         annual_return = analyzer.calculate_annual_return(nav_series)
         annual_volatility = analyzer.calculate_annual_volatility(nav_series)
@@ -259,10 +253,10 @@ def analyze_excel_fund(df, fund_code, output_dir, analyzer, visualizer, periods,
             'data_source': 'excel'
         }
         
-        print(f"   总收益率: {total_return:.2%}")
-        print(f"   年化收益率: {annual_return:.2%}")
-        print(f"   最大回撤: {max_drawdown:.2%}")
-        print(f"   夏普比率: {sharpe_ratio:.4f}")
+        logger.info("总收益率: %.2f%%", total_return * 100)
+        logger.info("年化收益率: %.2f%%", annual_return * 100)
+        logger.info("最大回撤: %.2f%%", max_drawdown * 100)
+        logger.info("夏普比率: %.4f", sharpe_ratio)
         
         return performance, nav_series
         
@@ -345,21 +339,25 @@ def main():
                        help='显示详细日志')
     
     args = parser.parse_args()
-    
+
     # 初始化输出管理器
     output_manager = OUTPUT_MANAGER
-    
-    # 设置日志级别
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    
-    print("🚀 开始Excel数据分析")
-    print("=" * 60)
+
+    # 配置日志
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    LogConfig.setup_root_logger(
+        LogConfig.resolve_log_dir('excel_analysis', config.REPORTS_DIR),
+        level=log_level,
+        script_name='excel_analysis'
+    )
+
+    logger.info("开始Excel数据分析")
+    logger.info("=" * 60)
     
     # 检查输入文件
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"❌ 文件不存在: {args.input}")
+        logger.error("文件不存在: %s", args.input)
         return 1
     
     # 使用输出管理器创建输出目录
@@ -391,7 +389,7 @@ def main():
         
         if 'fund_id' in df.columns:
             fund_codes = df['fund_id'].unique()
-            print(f"\n📊 发现 {len(fund_codes)} 只基金: {fund_codes}")
+            logger.info("发现 %s 只基金: %s", len(fund_codes), fund_codes)
         else:
             fund_codes = [args.fund_code or 'EXCEL_FUND']
         
@@ -430,7 +428,7 @@ def main():
                         comparison_indices=comparison_indices
                     )
                     if ok:
-                        print(f"   ✓ 详细绩效已保存: {detail_path.name}")
+                        logger.info("详细绩效已保存: %s", detail_path.name)
                 except Exception as e:
                     logger.error(f"保存基金 {fund_code} 详细绩效失败: {e}")
                 finally:
@@ -439,7 +437,7 @@ def main():
 
             # 分析持有期（如果数据足够）
             if len(nav_series) > max(args.periods) + 10:
-                print(f"   📊 分析持有期收益...")
+                logger.info("分析持有期收益")
                 try:
                     holding_results = simulator.simulate_multiple_periods(
                         nav_series, args.periods
@@ -448,13 +446,19 @@ def main():
                     holding_summary = summarize_holding_results(holding_results)
                     holding_summaries[fund_code] = holding_summary
                     period_label = "/".join(str(p) for p in args.periods)
-                    print(f"   持有期统计（{period_label}天）：")
+                    logger.info("持有期统计（%s天）", period_label)
                     for holding_days in args.periods:
                         stats = holding_summary.get(holding_days)
                         if stats:
-                            print(f"     {holding_days}天: 平均收益{stats['mean_return']:.2%}, 胜率{stats['win_rate']:.2%}, 样本数{stats['count']}")
+                            logger.info(
+                                "%s天: 平均收益%.2f%%, 胜率%.2f%%, 样本数%s",
+                                holding_days,
+                                stats['mean_return'] * 100,
+                                stats['win_rate'] * 100,
+                                stats['count'],
+                            )
                         else:
-                            print(f"     {holding_days}天: 数据不足")
+                            logger.warning("%s天: 数据不足", holding_days)
                     
                     # 使用新的批量保存方法（静态图保存到 excel_analysis 结构）
                     visualizer.save_all_holding_plots({
@@ -485,7 +489,7 @@ def main():
                                     'interactive', f"{fund_code}_持有期{holding_days}天_交互.html", fund_id=fund_code
                                 )
                                 interactive_fig.write_html(str(html_path))
-                                print(f"     ✓ 交互图 {holding_days}天: {html_path.name}")
+                                logger.info("交互图 %s天: %s", holding_days, html_path.name)
 
                     # 保存每只基金的持有期结果到 main 结构的 excel_holding
                     holding_analysis_dict = {
@@ -494,7 +498,7 @@ def main():
                     }
                     holding_excel_path = OUTPUT_MANAGER.get_path('excel_holding', f'holding_analysis_{fund_code}.xlsx')
                     simulator.save_simulation_results(holding_analysis_dict, str(holding_excel_path))
-                    print(f"   💾 持有期结果已保存: {holding_excel_path}")
+                    logger.info("持有期结果已保存: %s", holding_excel_path)
 
                     all_holding_results.append({
                         'fund_id': fund_code,
@@ -503,14 +507,14 @@ def main():
                     
                 except Exception as e:
                     logger.error(f"分析持有期失败: {e}")
-                    print(f"   ✗ 持有期分析失败: {e}")
+                    logger.error("持有期分析失败: %s", e)
             else:
-                print(f"   ⚠️ 数据不足，无法覆盖所有持有期（需要超过 {max(args.periods) + 10} 个数据点）")
+                logger.warning("数据不足，无法覆盖所有持有期（需要超过 %s 个数据点）", max(args.periods) + 10)
                 for holding_days in args.periods:
-                    print(f"     {holding_days}天: 数据不足")
+                    logger.warning("%s天: 数据不足", holding_days)
             
             # 生成净值曲线和回撤图
-            print(f"   🎨 生成图表...")
+            logger.info("生成图表")
             try:
                 # 净值曲线（静态）
                 visualizer.plot_nav_curve(nav_series, fund_code)
@@ -521,7 +525,7 @@ def main():
                     if interactive_nav:
                         html_path = OUTPUT_MANAGER.get_interactive_path(fund_code, 'nav_curve')
                         interactive_nav.write_html(str(html_path))
-                        print(f"   ✓ 交互净值曲线: {html_path.name}")
+                        logger.info("交互净值曲线: %s", html_path.name)
 
                 # 回撤图（静态）
                 visualizer.plot_drawdown_chart(nav_series, fund_code)
@@ -532,17 +536,17 @@ def main():
                     if interactive_drawdown:
                         html_path = OUTPUT_MANAGER.get_interactive_path(fund_code, 'nav_drawdown')
                         interactive_drawdown.write_html(str(html_path))
-                        print(f"   ✓ 交互净值回撤图: {html_path.name}")
+                        logger.info("交互净值回撤图: %s", html_path.name)
                 
-                print(f"   ✓ 图表生成完成")
+                logger.info("图表生成完成")
                 
             except Exception as e:
                 logger.error(f"生成图表失败: {e}")
-                print(f"   ✗ 图表生成失败: {e}")
+                logger.error("图表生成失败: %s", e)
             
             # 写入数据库（可选）
             if args.write_db:
-                print(f"   💾 写入数据库...")
+                logger.info("写入数据库")
                 try:
                     # 保存基金基本信息（简化）
                     fund_info = {
@@ -561,31 +565,31 @@ def main():
                     })
                     inserted = fund_db.insert_fund_daily_data(fund_code, daily_data)
                     
-                    print(f"   ✓ 写入数据库完成: {inserted} 条记录")
+                    logger.info("写入数据库完成: %s 条记录", inserted)
                     
                 except Exception as e:
                     logger.error(f"写入数据库失败: {e}")
-                    print(f"   ✗ 写入数据库失败: {e}")
+                    logger.error("写入数据库失败: %s", e)
         
         # 4. 保存绩效结果（与 main 一致，输出到 reports/main/.../excel/performance）
         if all_performance:
-            print(f"\n💾 保存分析结果...")
+            logger.info("保存分析结果")
             
             performance_df = pd.DataFrame(all_performance)
             perf_path = OUTPUT_MANAGER.get_path('excel_performance', 'performance_summary.xlsx')
             excel_output_path = perf_path
             # 使用与 main 相同的保存方法（指数为空）
             analyzer.save_performance_to_excel(performance_df, pd.DataFrame(), str(perf_path))
-            print(f"   绩效结果已保存: {perf_path}")
+            logger.info("绩效结果已保存: %s", perf_path)
             
             # 打印汇总
-            print(f"\n📋 分析汇总:")
-            print(f"   分析基金数: {len(all_performance)}")
-            print(f"   持有期分析: {len(all_holding_results)}")
-            print(f"   输出目录: {output_dir.absolute()}")
+            logger.info("分析汇总")
+            logger.info("分析基金数: %s", len(all_performance))
+            logger.info("持有期分析: %s", len(all_holding_results))
+            logger.info("输出目录: %s", output_dir.absolute())
         
-        print("\n" + "=" * 60)
-        print("✅ Excel数据分析完成！")
+        logger.info("=" * 60)
+        logger.info("Excel数据分析完成")
         
         # 输出目录摘要
         output_manager.print_summary()
@@ -600,13 +604,13 @@ def main():
             report_targets,
             excel_output=str(excel_output_path) if excel_output_path else None
         )
-        print(f"📝 Markdown报告已保存: {report_targets[0]}")
+        logger.info("Markdown报告已保存: %s", report_targets[0])
         
         return 0
         
     except Exception as e:
         logger.error(f"Excel分析失败: {e}")
-        print(f"\n❌ Excel分析失败: {e}")
+        logger.error("Excel分析失败: %s", e)
         return 1
 
 

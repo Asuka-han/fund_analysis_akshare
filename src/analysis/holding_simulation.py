@@ -9,10 +9,11 @@ import logging
 from typing import Dict, List, Any
 
 from ..utils.database import fund_db
+from ..utils.logger import get_logger
 from .performance import PerformanceAnalyzer
 
 warnings.filterwarnings('ignore')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 中文列名映射（输出友好）
 SIM_DETAIL_CN_COLUMNS = {
@@ -484,7 +485,7 @@ def main():
     
     # 测试单只基金持有期分析（带基准）
     test_fund = "000001.OF"
-    print(f"测试分析基金持有期: {test_fund}")
+    logger.info("测试分析基金持有期: %s", test_fund)
     
     holding_analysis = simulator.analyze_fund_holding(
         test_fund, 
@@ -493,51 +494,51 @@ def main():
     )
     
     if holding_analysis:
-        print(f"基金: {holding_analysis['fund_id']}")
-        print(f"数据时间范围: {holding_analysis['start_date']} 到 {holding_analysis['end_date']}")
-        print(f"总数据点数: {holding_analysis['total_days']}")
-        print(f"基准指数: {holding_analysis['benchmark_ids']}")
+        logger.info("基金: %s", holding_analysis['fund_id'])
+        logger.info("数据时间范围: %s 到 %s", holding_analysis['start_date'], holding_analysis['end_date'])
+        logger.info("总数据点数: %s", holding_analysis['total_days'])
+        logger.info("基准指数: %s", holding_analysis['benchmark_ids'])
         
         summary = holding_analysis.get('summary', {})
         for holding_days, stats in summary.items():
-            print(f"\n持有期 {holding_days} 天:")
-            print(f"  模拟次数: {stats['count']}")
-            print(f"  平均收益率: {stats['mean_return']:.4%}")
-            print(f"  中位数收益率: {stats['median_return']:.4%}")
-            print(f"  正收益比例: {stats['positive_ratio']:.2%}")
-            print(f"  平均夏普比率: {stats['mean_sharpe']:.4f}")
-            print(f"  平均最大回撤: {stats['mean_max_dd']:.4%}")
+            logger.info("持有期 %s 天:", holding_days)
+            logger.info("  模拟次数: %s", stats['count'])
+            logger.info("  平均收益率: %.4f%%", stats['mean_return'] * 100)
+            logger.info("  中位数收益率: %.4f%%", stats['median_return'] * 100)
+            logger.info("  正收益比例: %.2f%%", stats['positive_ratio'] * 100)
+            logger.info("  平均夏普比率: %.4f", stats['mean_sharpe'])
+            logger.info("  平均最大回撤: %.4f%%", stats['mean_max_dd'] * 100)
         
         # 打印基准对比
         benchmark_results = holding_analysis.get('benchmark_results', {})
         for benchmark_id, bench_stats in benchmark_results.items():
-            print(f"\n基准指数 {benchmark_id}:")
+            logger.info("基准指数 %s:", benchmark_id)
             for holding_days, stats in bench_stats.items():
-                print(f"  持有期 {holding_days} 天:")
-                print(f"    平均收益率: {stats['mean_return']:.4%}")
-                print(f"    正收益比例: {stats['positive_ratio']:.2%}")
+                logger.info("  持有期 %s 天:", holding_days)
+                logger.info("    平均收益率: %.4f%%", stats['mean_return'] * 100)
+                logger.info("    正收益比例: %.2f%%", stats['positive_ratio'] * 100)
         
         # 保存结果
-        print(f"\n保存模拟结果...")
+        logger.info("保存模拟结果")
         success = simulator.save_simulation_results(holding_analysis, 
                                                    f"holding_simulation_{test_fund}.xlsx")
         if success:
-            print("✅ 结果保存成功")
+            logger.info("结果保存成功")
     
     # 测试指数持有期分析
-    print(f"\n测试分析指数持有期: INDEX_SSE")
+    logger.info("测试分析指数持有期: INDEX_SSE")
     index_analysis = simulator.analyze_index_holding('INDEX_SSE', holding_periods=[30, 60, 90])
     
     if index_analysis:
-        print(f"指数: {index_analysis['index_id']}")
-        print(f"数据时间范围: {index_analysis['start_date']} 到 {index_analysis['end_date']}")
+        logger.info("指数: %s", index_analysis['index_id'])
+        logger.info("数据时间范围: %s 到 %s", index_analysis['start_date'], index_analysis['end_date'])
         
         summary = index_analysis.get('summary', {})
         for holding_days, stats in summary.items():
-            print(f"\n持有期 {holding_days} 天:")
-            print(f"  模拟次数: {stats['count']}")
-            print(f"  平均收益率: {stats['mean_return']:.4%}")
-            print(f"  正收益比例: {stats['positive_ratio']:.2%}")
+            logger.info("持有期 %s 天:", holding_days)
+            logger.info("  模拟次数: %s", stats['count'])
+            logger.info("  平均收益率: %.4f%%", stats['mean_return'] * 100)
+            logger.info("  正收益比例: %.2f%%", stats['positive_ratio'] * 100)
 
 
 if __name__ == "__main__":

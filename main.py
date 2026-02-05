@@ -21,25 +21,17 @@ from src.analysis.visualization import FundVisualizer
 from src.utils.database import fund_db
 from src.utils.fund_code_manager import fund_code_manager
 from src.utils.output_manager import get_output_manager
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
+from src.utils.logger import log_time
 import config
 
 # 初始化输出管理器（同时用于日志路径）
 USE_TIMESTAMP = True
 _MAIN_OUTPUT_MANAGER = get_output_manager('main', base_dir=config.REPORTS_DIR, use_timestamp=USE_TIMESTAMP)
-_MAIN_LOG_FILE = _MAIN_OUTPUT_MANAGER.get_path('logs', 'fund_analysis.log')
-_MAIN_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(str(_MAIN_LOG_FILE), encoding='utf-8'),
-        logging.StreamHandler()
-    ],
-    force=True
-)
-logger = logging.getLogger(__name__)
+_MAIN_LOG_DIR = LogConfig.resolve_log_dir('main', config.REPORTS_DIR)
+LogConfig.setup_root_logger(_MAIN_LOG_DIR, level=logging.INFO, script_name='fund_analysis')
+logger = get_logger(__name__)
 
 
 class FundAnalysisPipeline:
@@ -51,7 +43,7 @@ class FundAnalysisPipeline:
         self.output_manager = _MAIN_OUTPUT_MANAGER
         
         self.start_time = datetime.now()
-        logger.info(f"🚀 基金分析项目启动: {self.start_time}")
+        logger.info(f"基金分析项目启动: {self.start_time}")
         
         # 初始化各个模块
         self.fund_fetcher = FundDataFetcher()
@@ -78,7 +70,7 @@ class FundAnalysisPipeline:
         logger.info("=" * 60)
         
         # 获取基金数据
-        logger.info("📊 开始获取基金数据...")
+        logger.info("开始获取基金数据")
         
         # 使用基金代码管理器转换格式
         fund_codes_for_akshare = fund_code_manager.batch_to_akshare(config.FUND_CODES)
@@ -100,7 +92,7 @@ class FundAnalysisPipeline:
         logger.info(f"基金数据获取完成: {fund_results}")
         
         # 获取指数数据
-        logger.info("📈 开始获取指数数据...")
+        logger.info("开始获取指数数据")
         index_results = self.index_fetcher.fetch_all_indices_data()
         
         # 将指数数据保存到数据库
@@ -119,7 +111,7 @@ class FundAnalysisPipeline:
         logger.info("=" * 60)
         
         # 分析基金绩效（使用数据库格式的基金代码）
-        logger.info("📈 分析基金绩效...")
+        logger.info("分析基金绩效")
         funds_performance = self.performance_analyzer.analyze_all_funds(config.FUND_CODES)
 
         # 将绩效结果写入数据库，便于后续查询
@@ -135,7 +127,7 @@ class FundAnalysisPipeline:
             logger.warning("没有可分析的基金数据")
         
         # 分析指数绩效
-        logger.info("📊 分析指数绩效...")
+        logger.info("分析指数绩效")
         indices_performance = self.performance_analyzer.analyze_all_indices()
 
         # 写入指数绩效
@@ -151,14 +143,14 @@ class FundAnalysisPipeline:
             logger.warning("没有可分析的指数数据")
         
         # 保存绩效结果到Excel
-        logger.info("💾 保存绩效结果到Excel...")
+        logger.info("保存绩效结果到 Excel")
         excel_path = self.output_manager.get_path('excel_performance', 'performance_summary.xlsx')
         success = self.performance_analyzer.save_performance_to_excel(
             funds_performance, indices_performance, str(excel_path)
         )
         
         if success:
-            logger.info(f"✅ 绩效结果已保存到: {excel_path}")
+            logger.info(f"绩效结果已保存到: {excel_path}")
 
         # 保存每只基金的详细绩效表格（产品及基准收益率/周收益率曲线/月度收益率）
         if config.FUND_CODES:
@@ -174,7 +166,7 @@ class FundAnalysisPipeline:
                         comparison_indices=comparison_indices
                     )
                     if ok:
-                        logger.info(f"✅ 详细绩效结果已保存: {detail_path}")
+                        logger.info(f"详细绩效结果已保存: {detail_path}")
                 except Exception as e:
                     logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}")
         
@@ -189,7 +181,7 @@ class FundAnalysisPipeline:
         holding_results = {}
         
         for fund_id in config.FUND_CODES:
-            logger.info(f"🔍 模拟基金持有期收益: {fund_id}")
+            logger.info(f"模拟基金持有期收益: {fund_id}")
             
             # 分析持有期收益
             analysis = self.holding_simulator.analyze_fund_holding(
@@ -223,12 +215,12 @@ class FundAnalysisPipeline:
         
         # 1. 生成绩效对比图
         if not funds_performance.empty:
-            logger.info("📊 生成绩效对比图...")
+            logger.info("生成绩效对比图")
             self.visualizer.plot_performance_comparison(funds_performance)
         
         # 2. 为每只基金生成图表
         for fund_id in config.FUND_CODES:
-            logger.info(f"🎨 为基金生成图表: {fund_id}")
+            logger.info(f"为基金生成图表: {fund_id}")
             
             # 获取基金数据
             df = fund_db.get_fund_daily_data(fund_id)
@@ -316,7 +308,7 @@ class FundAnalysisPipeline:
         
             # 已在上方生成交互式净值/回撤图
         
-        logger.info(f"✅ 所有图表已保存到: {self.output_manager.get_path('plots')}")
+        logger.info(f"所有图表已保存到: {self.output_manager.get_path('plots')}")
 
     def _build_composite_nav_from_db(self, composite_id: str) -> pd.Series:
         """
@@ -380,7 +372,7 @@ class FundAnalysisPipeline:
             with open(report_path, 'w', encoding='utf-8') as f:
                 f.write(report_content)
             
-            logger.info(f"✅ 分析报告已生成: {report_path}")
+            logger.info(f"分析报告已生成: {report_path}")
             
         except Exception as e:
             logger.error(f"生成报告失败: {e}")
@@ -450,7 +442,7 @@ class FundAnalysisPipeline:
 
 ### 报告文件
 - `reports/analysis_report.md`: 本报告
-- `{_MAIN_LOG_FILE}`: 运行日志
+- `{_MAIN_LOG_DIR}`: 运行日志目录
 
 ## 使用说明
 ### 重新运行分析
@@ -463,30 +455,35 @@ python main.py
     def run(self):
         """运行整个分析流水线"""
         try:
-            logger.info("🏁 开始基金分析项目")
+            logger.info("开始基金分析项目")
             
             # 步骤1: 获取数据
-            self.fetch_data()
+            with log_time("步骤1: 获取数据", logger):
+                self.fetch_data()
             
             # 步骤2: 分析绩效
-            funds_performance, indices_performance = self.analyze_performance()
+            with log_time("步骤2: 分析绩效", logger):
+                funds_performance, indices_performance = self.analyze_performance()
             
             # 步骤3: 持有期模拟
-            holding_results = self.simulate_holding_periods(funds_performance)
+            with log_time("步骤3: 持有期模拟", logger):
+                holding_results = self.simulate_holding_periods(funds_performance)
             
             # 步骤4: 生成可视化
-            self.generate_visualizations(funds_performance, holding_results)
+            with log_time("步骤4: 生成可视化", logger):
+                self.generate_visualizations(funds_performance, holding_results)
             
             # 步骤5: 生成报告
-            self.generate_report()
+            with log_time("步骤5: 生成报告", logger):
+                self.generate_report()
             
             # 完成
             end_time = datetime.now()
             duration = end_time - self.start_time
             logger.info("=" * 60)
-            logger.info(f"✅ 基金分析项目完成!")
-            logger.info(f"⏱️  总运行时间: {duration}")
-            logger.info(f"📁 结果保存在: {self.output_manager.get_path('base')}")
+            logger.info("基金分析项目完成")
+            logger.info(f"总运行时间: {duration}")
+            logger.info(f"结果保存在: {self.output_manager.get_path('base')}")
             logger.info("=" * 60)
             
             # 打印输出目录摘要
@@ -509,14 +506,14 @@ def main():
     success = pipeline.run()
 
     if success:
-        logger.info("\n🎉 基金分析项目成功完成!")
+        logger.info("基金分析项目成功完成")
         output_manager = _MAIN_OUTPUT_MANAGER
-        logger.info("📊 查看绩效结果: %s", output_manager.get_path('excel_performance', 'performance_summary.xlsx'))
-        logger.info("📁 查看持有期Excel: %s", output_manager.get_path('excel_holding'))
-        logger.info("🎨 查看图表: %s/", output_manager.get_path('plots'))
-        logger.info("📝 查看报告: %s", output_manager.get_path('reports', 'analysis_report.md'))
+        logger.info("查看绩效结果: %s", output_manager.get_path('excel_performance', 'performance_summary.xlsx'))
+        logger.info("查看持有期Excel: %s", output_manager.get_path('excel_holding'))
+        logger.info("查看图表: %s/", output_manager.get_path('plots'))
+        logger.info("查看报告: %s", output_manager.get_path('reports', 'analysis_report.md'))
     else:
-        logger.error("\n❌ 基金分析项目运行失败，请查看日志文件: %s", _MAIN_LOG_FILE)
+        logger.error("基金分析项目运行失败，请查看日志目录: %s", _MAIN_LOG_DIR)
         sys.exit(1)
 
 

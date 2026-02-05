@@ -15,12 +15,9 @@ from datetime import datetime
 # 统一基金代码格式，避免查询不到带/不带.OF的记录
 from .fund_code_manager import fund_code_manager
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class FundDatabase:
@@ -611,11 +608,11 @@ fund_db = FundDatabase()
 if __name__ == "__main__":
     # 测试数据库连接和表创建
     db = FundDatabase()
-    print("✅ 数据库初始化完成")
+    logger.info("数据库初始化完成")
     
     # 测试获取连接
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = cursor.fetchall()
-        print(f"📊 数据库中的表: {[t[0] for t in tables]}")
+        logger.info("数据库中的表: %s", [t[0] for t in tables])

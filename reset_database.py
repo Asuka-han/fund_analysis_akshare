@@ -9,12 +9,11 @@ import os
 from pathlib import Path
 import logging
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
+import config
+
+logger = get_logger(__name__)
 
 
 def reset_database(db_path: str = "data/fund_data.db"):
@@ -42,10 +41,10 @@ def reset_database(db_path: str = "data/fund_data.db"):
         
         # 创建新数据库
         init_database(db_path)
-        logger.info("✅ 数据库重置完成")
+        logger.info("数据库重置完成")
         
     except Exception as e:
-        logger.error(f"❌ 数据库重置失败: {e}")
+        logger.error(f"数据库重置失败: {e}")
         # 如果失败，尝试恢复备份
         if backup_path.exists():
             backup_path.rename(db_path)
@@ -186,10 +185,10 @@ def init_database(db_path: Path):
         
         conn.commit()
         conn.close()
-        logger.info(f"✅ 数据库初始化完成: {db_path}")
+        logger.info(f"数据库初始化完成: {db_path}")
         
     except Exception as e:
-        logger.error(f"❌ 数据库初始化失败: {e}")
+        logger.error(f"数据库初始化失败: {e}")
         raise
 
 
@@ -242,14 +241,20 @@ def main():
                        help='数据库文件路径 (默认: data/fund_data.db)')
     
     args = parser.parse_args()
+
+    LogConfig.setup_root_logger(
+        LogConfig.resolve_log_dir('reset_database', config.REPORTS_DIR),
+        level=logging.INFO,
+        script_name='reset_database'
+    )
     
     if args.action == 'reset':
-        print("⚠️  警告：这将删除所有数据并重建数据库结构")
+        logger.warning("警告：这将删除所有数据并重建数据库结构")
         confirm = input("确定要继续吗？(输入 'yes' 确认): ")
         if confirm.lower() == 'yes':
             reset_database(args.db_path)
         else:
-            print("操作已取消")
+            logger.info("操作已取消")
     elif args.action == 'check':
         check_database_structure(args.db_path)
     elif args.action == 'backup':

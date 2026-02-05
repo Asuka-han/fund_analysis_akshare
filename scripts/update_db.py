@@ -40,29 +40,17 @@ from src.data_fetch.index_fetcher import IndexDataFetcher
 from src.utils.database import fund_db
 from src.utils.fund_code_manager import fund_code_manager
 from src.utils.output_manager import get_output_manager
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
 import config
-import io
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-def configure_logging(log_path: Path, verbose: bool = False):
-    """配置日志输出到控制台和文件，避免控制台编码报错"""
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    safe_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    console_handler = logging.StreamHandler(safe_stdout)
-    file_handler = logging.FileHandler(str(log_path), encoding='utf-8')
-
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            console_handler,
-            file_handler
-        ]
-    )
+def configure_logging(log_dir: Path, verbose: bool = False):
+    """配置日志输出到控制台和文件"""
+    level = logging.DEBUG if verbose else logging.INFO
+    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="update_db")
 
 
 def backup_database(backup_name: str = None):
@@ -258,11 +246,11 @@ def main():
     # 初始化输出管理器
     output_manager = get_output_manager('update_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
 
-    # 配置日志到带时间戳的目录
-    configure_logging(output_manager.get_path('logs', 'update_db.log'), args.verbose)
-    
-    print("🚀 开始更新数据库")
-    print("=" * 60)
+    # 配置日志到统一日志目录
+    configure_logging(LogConfig.resolve_log_dir('update_db', config.REPORTS_DIR), args.verbose)
+
+    logger.info("开始更新数据库")
+    logger.info("=" * 60)
     
     # 处理日期参数
     if not args.start_date and args.years:
@@ -278,10 +266,10 @@ def main():
             args.indices = config.get_actual_benchmark_codes()
         else:
             args.indices = config.BENCHMARK_IDS
-        print(f"将更新所有基金: {args.funds}")
-        print(f"将更新所有指数: {args.indices}")
+        logger.info("将更新所有基金: %s", args.funds)
+        logger.info("将更新所有指数: %s", args.indices)
     elif not args.funds and not args.indices:
-        print("❌ 请指定要更新的基金或指数，或使用 --all 参数")
+        logger.error("请指定要更新的基金或指数，或使用 --all 参数")
         parser.print_help()
         return 1
     
@@ -289,14 +277,15 @@ def main():
     if args.backup:
         backup_path = backup_database(args.backup_name)
         if not backup_path:
-            print("⚠️  备份失败，是否继续？[y/N]", end=' ')
+            logger.warning("备份失败，等待用户确认是否继续")
+            print("备份失败，是否继续？[y/N]", end=' ')
             if input().lower() != 'y':
                 return 1
 
     # 更新基金数据
     fund_count = 0
     if args.funds:
-        print(f"\n📊 更新基金数据（{len(args.funds)} 只）...")
+        logger.info("更新基金数据（%s 只）", len(args.funds))
         fund_count = fetch_funds_data(
             args.funds,
             args.start_date,
@@ -307,7 +296,7 @@ def main():
     # 更新指数数据
     index_count = 0
     if args.indices:
-        print(f"\n📈 更新指数数据（{len(args.indices)} 个）...")
+        logger.info("更新指数数据（%s 个）", len(args.indices))
         index_count = fetch_indices_data(
             args.indices,
             args.start_date,
@@ -316,14 +305,14 @@ def main():
         )
     
     # 输出总结
-    print("\n" + "=" * 60)
-    print("✅ 数据库更新完成！")
-    print(f"   基金数据: {fund_count} 条新增记录")
-    print(f"   指数数据: {index_count} 条新增记录")
-    print(f"   数据库位置: {config.DATABASE_PATH}")
+    logger.info("=" * 60)
+    logger.info("数据库更新完成")
+    logger.info("基金数据: %s 条新增记录", fund_count)
+    logger.info("指数数据: %s 条新增记录", index_count)
+    logger.info("数据库位置: %s", config.DATABASE_PATH)
     
     if args.backup and backup_path:
-        print(f"   备份文件: {backup_path}")
+        logger.info("备份文件: %s", backup_path)
 
     # 生成导入报告（Markdown）
     report_path = output_manager.get_path('reports', 'data_import_report.md')
@@ -342,7 +331,7 @@ def main():
     with open(report_path, 'w', encoding='utf-8') as f:
         f.write(report_content)
     logger.info(f"数据导入报告已保存: {report_path}")
-    print(f"📝 导入报告: {report_path}")
+    logger.info("导入报告: %s", report_path)
     
     # 输出目录摘要
     output_manager.print_summary()

@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from ..utils.database import fund_db
+from ..utils.logger import get_logger
 from ..utils.excel_style_config import (
     apply_product_sheet_style,
     apply_weekly_sheet_style,
@@ -20,7 +21,7 @@ from ..utils.excel_style_config import (
 )
 
 warnings.filterwarnings('ignore')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 导入配置
 try:
@@ -1471,83 +1472,83 @@ def main():
     
     # 测试单只基金分析（不同频率）
     test_fund = "000001.OF"
-    print(f"测试分析基金: {test_fund}")
+    logger.info("测试分析基金: %s", test_fund)
     
     for freq in ['daily', 'weekly', 'monthly']:
-        print(f"\n频率: {freq}")
+        logger.info("频率: %s", freq)
         performance = analyzer.analyze_fund_performance(test_fund, frequency=freq)
         if performance:
-            print(f"基金绩效指标 ({freq}):")
+            logger.info("基金绩效指标 (%s):", freq)
             for key, value in performance.items():
                 if key.endswith('return') or key.endswith('ratio') or 'drawdown' in key or 'volatility' in key:
                     if isinstance(value, float):
-                        print(f"  {key}: {value:.4%}" if 'return' in key else f"  {key}: {value:.4f}")
+                        logger.info("  %s: %s", key, f"{value:.4%}" if 'return' in key else f"{value:.4f}")
     
     # 测试指数分析
-    print(f"\n测试分析指数: INDEX_SSE")
+    logger.info("测试分析指数: INDEX_SSE")
     for freq in ['daily', 'weekly']:
         index_performance = analyzer.analyze_index_performance('INDEX_SSE', frequency=freq)
         if index_performance:
-            print(f"指数绩效指标 ({freq}):")
+            logger.info("指数绩效指标 (%s):", freq)
             for key, value in index_performance.items():
                 if key.endswith('return') or key.endswith('ratio') or 'drawdown' in key or 'volatility' in key:
                     if isinstance(value, float):
-                        print(f"  {key}: {value:.4%}" if 'return' in key else f"  {key}: {value:.4f}")
+                        logger.info("  %s: %s", key, f"{value:.4%}" if 'return' in key else f"{value:.4f}")
     
     # 分析所有基金
-    print(f"\n分析所有基金...")
+    logger.info("分析所有基金")
     fund_ids = ["000001.OF", "510300.OF"]  # 测试用
     funds_results = analyzer.analyze_all_funds(fund_ids, frequency='weekly')
     
     if not funds_results.empty:
-        print(f"基金绩效汇总 (周度, 共 {len(funds_results)} 只):")
-        print(funds_results[['fund_id', 'frequency_cn', 'total_return', 'annual_return', 'max_drawdown', 'sharpe_ratio']].to_string())
+        logger.info("基金绩效汇总 (周度, 共 %s 只):", len(funds_results))
+        logger.info("\n%s", funds_results[['fund_id', 'frequency_cn', 'total_return', 'annual_return', 'max_drawdown', 'sharpe_ratio']].to_string())
     
     # 分析所有指数
-    print(f"\n分析所有指数...")
+    logger.info("分析所有指数")
     indices_results = analyzer.analyze_all_indices(frequency='weekly')
     
     if not indices_results.empty:
-        print(f"指数绩效汇总 (周度, 共 {len(indices_results)} 个):")
-        print(indices_results[['fund_id', 'frequency_cn', 'total_return', 'annual_return', 'max_drawdown', 'sharpe_ratio']].to_string())
+        logger.info("指数绩效汇总 (周度, 共 %s 个):", len(indices_results))
+        logger.info("\n%s", indices_results[['fund_id', 'frequency_cn', 'total_return', 'annual_return', 'max_drawdown', 'sharpe_ratio']].to_string())
     
     # 保存到Excel
-    print(f"\n保存结果到Excel...")
+    logger.info("保存结果到Excel")
     success = analyzer.save_performance_to_excel(funds_results, indices_results)
     if success:
-        print("✅ 结果保存成功")
+        logger.info("结果保存成功")
     
     # 测试详细绩效表格
-    print(f"\n测试生成详细绩效表格...")
+    logger.info("测试生成详细绩效表格")
     if not fund_ids:
-        print("没有基金数据，跳过详细表格测试")
+        logger.warning("没有基金数据，跳过详细表格测试")
     else:
         test_fund = fund_ids[0]
-        print(f"为基金 {test_fund} 生成详细绩效表格...")
+        logger.info("为基金 %s 生成详细绩效表格", test_fund)
         
         # 生成产品及基准收益率表格
         yearly_returns = analyzer.generate_fund_returns_table(test_fund)
         if not yearly_returns.empty:
-            print(f"产品及基准收益率表格 (前5年):")
-            print(yearly_returns.head())
+            logger.info("产品及基准收益率表格 (前5年):")
+            logger.info("\n%s", yearly_returns.head())
         
         # 生成周收益率曲线表格
         weekly_returns = analyzer.generate_weekly_returns_curve(test_fund)
         if not weekly_returns.empty:
-            print(f"\n周收益率曲线表格 (前5周):")
-            print(weekly_returns.head())
+            logger.info("周收益率曲线表格 (前5周):")
+            logger.info("\n%s", weekly_returns.head())
         
         # 生成月度收益率表格
         monthly_returns = analyzer.generate_monthly_returns_table(test_fund)
         if not monthly_returns.empty:
-            print(f"\n月度收益率表格:")
-            print(monthly_returns.head())
+            logger.info("月度收益率表格:")
+            logger.info("\n%s", monthly_returns.head())
         
         # 保存详细绩效到Excel
-        print(f"\n保存详细绩效到Excel...")
+        logger.info("保存详细绩效到Excel")
         success = analyzer.save_detailed_performance_to_excel(test_fund, "detailed_performance.xlsx")
         if success:
-            print("✅ 详细绩效结果保存成功")
+            logger.info("详细绩效结果保存成功")
 
 
 if __name__ == "__main__":

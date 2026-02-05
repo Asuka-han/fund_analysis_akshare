@@ -107,7 +107,7 @@ class OutputManager:
         for dir_path in dirs.values():
             dir_path.mkdir(parents=True, exist_ok=True)
         
-        logger.info(f"📁 输出目录结构已创建: {script_base}")
+        logger.info(f"输出目录结构已创建: {script_base}")
         return dirs
     
     def get_path(self, output_type: str, filename: str = None, 
@@ -268,7 +268,7 @@ class OutputManager:
     def print_summary(self):
         """打印输出目录摘要"""
         lines = []
-        lines.append("\n📁 输出目录结构摘要")
+        lines.append("\n输出目录结构摘要")
         lines.append("=" * 60)
 
         summary = self.get_summary_info()

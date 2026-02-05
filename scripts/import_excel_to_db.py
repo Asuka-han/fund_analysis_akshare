@@ -19,7 +19,6 @@ import sqlite3
 import argparse
 import logging
 from typing import Dict, List, Tuple, Optional, Any
-import io
 
 # 保证脚本独立运行时能找到项目内模块
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -36,28 +35,17 @@ REPO_ROOT, STORAGE_ROOT = add_project_paths()
 from src.utils.database import fund_db
 from src.utils.fund_code_manager import fund_code_manager
 from src.utils.output_manager import get_output_manager
+from src.utils.logger_config import LogConfig
+from src.utils.logger import get_logger
 import config
 
 # 日志配置，稍后根据输出目录绑定文件
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-def configure_logging(log_path: Path, verbose: bool = False):
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(safe_stdout),
-            logging.FileHandler(str(log_path), encoding='utf-8')
-        ],
-        force=True
-    )
+def configure_logging(log_dir: Path, verbose: bool = False):
+    level = logging.DEBUG if verbose else logging.INFO
+    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="excel_import")
 
 
 class ExcelImporter:
@@ -493,9 +481,9 @@ class ExcelImporter:
         report.append("=" * 60)
         
         if dry_run:
-            report.append("📝 试运行模式（未实际写入数据库）")
+            report.append("试运行模式（未实际写入数据库）")
         
-        report.append(f"📊 导入统计")
+        report.append("导入统计")
         report.append(f"  总行数: {stats['total_rows']}")
         report.append(f"  成功导入: {stats['successful']}")
         report.append(f"  跳过: {stats['skipped']}")
@@ -510,7 +498,7 @@ class ExcelImporter:
             report.append("  （重复数据将被替换）")
         
         if stats['funds_affected']:
-            report.append(f"\n📈 受影响基金 ({len(stats['funds_affected'])} 只):")
+            report.append(f"\n受影响基金 ({len(stats['funds_affected'])} 只):")
             for fund_id in sorted(stats['funds_affected']):
                 date_info = stats['date_range'].get(fund_id, {})
                 start = date_info.get('start', 'N/A')
@@ -531,7 +519,7 @@ class ExcelImporter:
                     report.append(f"    - {example['fund_id']} | {example['date']} | NAV: {example.get('nav')}")
         
         if stats['errors']:
-            report.append(f"\n❌ 错误信息 ({len(stats['errors'])} 个):")
+            report.append(f"\n错误信息 ({len(stats['errors'])} 个):")
             for i, error in enumerate(stats['errors'][:5], 1):  # 只显示前5个错误
                 report.append(f"  {i}. {error}")
             if len(stats['errors']) > 5:
@@ -599,7 +587,7 @@ def main():
 
     start_time = datetime.now()
     output_manager = get_output_manager('import_excel_to_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
-    configure_logging(output_manager.get_path('logs', 'import_excel_to_db.log'), args.verbose)
+    configure_logging(LogConfig.resolve_log_dir('excel_import', config.REPORTS_DIR), args.verbose)
     
     # 初始化导入器
     importer = ExcelImporter(db_path=args.db_path)
@@ -651,7 +639,7 @@ def main():
     )
     
     # 输出报告
-    print(report)
+    logger.info("导入报告内容:\n%s", report)
     
     # 保存报告
     if args.output:
@@ -660,16 +648,19 @@ def main():
         output_path = None
 
     importer.save_report(report, output_path, output_manager=output_manager)
-    print(f"📝 导入报告: {output_path if output_path else output_manager.get_path('reports', 'data_import_report.md')}")
+    logger.info(
+        "导入报告: %s",
+        output_path if output_path else output_manager.get_path('reports', 'data_import_report.md')
+    )
 
     # 输出目录摘要
     output_manager.print_summary()
     
     # 总结
     if import_stats['failed'] == 0:
-        logger.info("✅ 导入完成！")
+        logger.info("导入完成")
     else:
-        logger.warning(f"⚠️ 导入完成，但有 {import_stats['failed']} 个失败")
+        logger.warning("导入完成，但有 %s 个失败", import_stats['failed'])
     
     return 0 if import_stats['failed'] == 0 else 1
 

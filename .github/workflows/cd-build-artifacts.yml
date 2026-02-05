@@ -1,0 +1,161 @@
+# CD 独立配置文件：仅手动触发，批量打包指定文件 + 构建 Docker 镜像
+name: CD - Build Artifacts (手动触发 + 批量打包指定文件)
+
+# 触发条件：仅保留手动触发，完全由你控制何时运行
+on:
+  workflow_dispatch: # 仅在 GitHub Actions 页面手动点击运行
+
+jobs:
+  # ---------------------- 任务 1：批量打包 Windows 可执行文件（.exe）----------------------
+  build-windows-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies and pyinstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: 批量打包指定文件为 Windows .exe
+        run: |
+          # 定义需要打包的文件列表（按你的需求定制）
+          $files = @(
+            "main.py",
+            "scripts/analysis_from_excel.py",
+            "scripts/import_excel_to_db.py",
+            "scripts/run_analysis_from_db.py",
+            "scripts/update_db.py"
+          )
+
+          # 创建统一产物目录
+          mkdir -p dist_windows
+
+          # 遍历文件列表，逐个打包
+          foreach ($py_file in $files) {
+            # 提取文件名（去掉路径和后缀）
+            $file_base = [System.IO.Path]::GetFileNameWithoutExtension($py_file)
+            $output_name = "fund_analysis_tool_${file_base}_windows"
+
+            Write-Host "=== 正在打包：$py_file → $output_name.exe ==="
+            pyinstaller -F -n $output_name $py_file
+
+            # 复制产物到统一目录
+            if (Test-Path "dist/$output_name.exe") {
+              Copy-Item "dist/$output_name.exe" "dist_windows/"
+              Write-Host "✅ 打包完成，产物已复制到 dist_windows/"
+            } else {
+              Write-Host "❌ $py_file 打包失败！"
+              exit 1
+            }
+          }
+
+      - name: 批量上传所有 Windows .exe 到 GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.run_number }} - 批量打包产物（手动触发）
+          tag_name: v${{ github.run_number }}
+          files: dist_windows/*.exe
+          body: |
+            本次手动触发 CD 生成的产物：
+            1. Windows 可执行文件：批量打包了 main.py、scripts/下4个脚本
+            2. Linux 可执行文件：对应相同的5个文件
+            3. Docker 镜像：${{ secrets.DOCKER_HUB_USERNAME }}/fund_analysis_tool:v${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------- 任务 2：批量打包 Linux 可执行文件 ----------------------
+  build-linux-executable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies and pyinstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: 批量打包指定文件为 Linux 可执行文件
+        run: |
+          # 定义需要打包的文件列表（和 Windows 保持一致）
+          files=(
+            "main.py"
+            "scripts/analysis_from_excel.py"
+            "scripts/import_excel_to_db.py"
+            "scripts/run_analysis_from_db.py"
+            "scripts/update_db.py"
+          )
+
+          # 创建统一产物目录
+          mkdir -p dist_linux
+
+          # 遍历文件列表，逐个打包
+          for py_file in "${files[@]}"; do
+            # 提取文件名（去掉路径和后缀）
+            file_base=$(basename "$py_file" .py)
+            output_name="fund_analysis_tool_${file_base}_linux"
+
+            echo "=== 正在打包：$py_file → $output_name ==="
+            pyinstaller -F -n "$output_name" "$py_file"
+
+            # 复制产物到统一目录
+            if [ -f "dist/$output_name" ]; then
+              cp "dist/$output_name" "dist_linux/"
+              echo "✅ 打包完成，产物已复制到 dist_linux/"
+            else
+              echo "❌ $py_file 打包失败！"
+              exit 1
+            fi
+          done
+
+      - name: 批量上传所有 Linux 可执行文件到 GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.run_number }} - 批量打包产物（手动触发）
+          tag_name: v${{ github.run_number }}
+          files: dist_linux/*
+          body: |
+            本次手动触发 CD 生成的产物：
+            1. Windows 可执行文件：批量打包了 main.py、scripts/下4个脚本
+            2. Linux 可执行文件：对应相同的5个文件
+            3. Docker 镜像：${{ secrets.DOCKER_HUB_USERNAME }}/fund_analysis_tool:v${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------- 任务 3：构建并推送 Docker 容器镜像 ----------------------
+  build-and-push-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # 镜像名改为你的项目名：fund_analysis_tool
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/fund_analysis_tool:v${{ github.run_number }}

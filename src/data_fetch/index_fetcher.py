@@ -17,8 +17,9 @@ try:
 except Exception:
     _FETCH_YEARS = 3
 import numpy as np
+from ..utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IndexDataFetcher:
@@ -33,7 +34,7 @@ class IndexDataFetcher:
             logger.error("无法导入config模块")
             self.config = None
         
-        logger.info("✅ 指数数据获取器初始化完成")
+        logger.info("指数数据获取器初始化完成")
     
     def _get_base_index_info(self, index_code: str) -> Tuple[str, str]:
         """
@@ -69,7 +70,7 @@ class IndexDataFetcher:
             # 标准化代码和获取显示名称
             normalized_code, display_name = self._get_base_index_info(index_code)
             
-            logger.info(f"🔍 正在获取指数 {normalized_code} ({display_name}) 的数据...")
+            logger.info(f"正在获取指数 {normalized_code} ({display_name}) 的数据")
             
             # 检查是否为复合指数
             if self.config and self.config.is_composite_index(normalized_code):
@@ -130,7 +131,7 @@ class IndexDataFetcher:
                         return None
             
             if index_data is None or index_data.empty:
-                logger.warning(f"⚠️ 指数 {normalized_code} 没有获取到数据")
+                logger.warning(f"指数 {normalized_code} 没有获取到数据")
                 return None
             
             # 标准化列名
@@ -166,8 +167,8 @@ class IndexDataFetcher:
             
             # 确保必须的列存在
             if 'date' not in index_data.columns or 'close' not in index_data.columns:
-                logger.warning(f"⚠️ 指数 {normalized_code} 返回列: {list(index_data.columns)}")
-                logger.warning(f"⚠️ 指数 {normalized_code} 缺少必要列: date 或 close")
+                logger.warning(f"指数 {normalized_code} 返回列: {list(index_data.columns)}")
+                logger.warning(f"指数 {normalized_code} 缺少必要列: date 或 close")
                 return None
             
             # 确保日期列为datetime类型
@@ -180,14 +181,14 @@ class IndexDataFetcher:
             ].copy()
             
             if index_data.empty:
-                logger.warning(f"⚠️ 指数 {normalized_code} 在指定日期范围内没有数据")
+                logger.warning(f"指数 {normalized_code} 在指定日期范围内没有数据")
                 return None
             
             # 按日期排序
             index_data.sort_values(by='date', inplace=True)
             index_data.reset_index(drop=True, inplace=True)
             
-            logger.info(f"✅ 指数 {normalized_code} 数据获取成功，共 {len(index_data)} 条记录")
+            logger.info(f"指数 {normalized_code} 数据获取成功，共 {len(index_data)} 条记录")
             
             # 添加指数代码列
             index_data['index_id'] = normalized_code
@@ -195,7 +196,7 @@ class IndexDataFetcher:
             return index_data
             
         except Exception as e:
-            logger.error(f"❌ 获取指数 {index_code} 数据失败: {e}")
+            logger.error(f"获取指数 {index_code} 数据失败: {e}")
             return None
     
     def calculate_composite_index(self, composite_code: str, 
@@ -310,11 +311,11 @@ class IndexDataFetcher:
             # 只保留需要的列
             result_df = result_df[['date', 'close', 'index_id']].copy()
             
-            logger.info(f"✅ 复合指数 {composite_code} 计算成功，共 {len(result_df)} 条记录")
+            logger.info(f"复合指数 {composite_code} 计算成功，共 {len(result_df)} 条记录")
             return result_df
             
         except Exception as e:
-            logger.error(f"❌ 计算复合指数 {composite_code} 失败: {e}")
+            logger.error(f"计算复合指数 {composite_code} 失败: {e}")
             return None
     
     def fetch_all_indices_data(self, index_codes: List[str] = None) -> Dict[str, pd.DataFrame]:
@@ -339,7 +340,7 @@ class IndexDataFetcher:
             # 标准化代码和获取显示名称
             normalized_code, display_name = self._get_base_index_info(idx_code)
             
-            logger.info(f"📊 正在获取指数 {normalized_code} ({display_name}) 的数据...")
+            logger.info(f"正在获取指数 {normalized_code} ({display_name}) 的数据")
             
             # 获取单个指数数据
             index_data = self.fetch_index_data(idx_code)
@@ -347,12 +348,12 @@ class IndexDataFetcher:
             if index_data is not None:
                 results[normalized_code] = index_data
             else:
-                logger.warning(f"⚠️ 指数 {normalized_code} 数据获取失败")
+                logger.warning(f"指数 {normalized_code} 数据获取失败")
             
             # 添加延时避免过于频繁的API调用
             time.sleep(0.5)
         
-        logger.info(f"✅ 共成功获取 {len(results)} 个指数的数据")
+        logger.info(f"共成功获取 {len(results)} 个指数的数据")
         return results
 
 if __name__ == "__main__":
@@ -364,18 +365,18 @@ if __name__ == "__main__":
     results = fetcher.fetch_all_indices_data(test_codes)
     
     for code, data in results.items():
-        print(f"\n指数 {code} 的前5条数据:")
-        print(data.head())
+        logger.info("指数 %s 的前5条数据:", code)
+        logger.info("\n%s", data.head())
     
     # 测试复合指数
-    print("\n" + "="*50)
-    print("测试医疗创新指数计算:")
+    logger.info("=" * 50)
+    logger.info("测试医疗创新指数计算")
     medical_index = fetcher.calculate_composite_index('MED_INNOV')
     if medical_index is not None:
-        print(medical_index.head())
+        logger.info("\n%s", medical_index.head())
     
     # 测试新复合指数
-    print("\n测试自定义复合指数计算:")
+    logger.info("测试自定义复合指数计算")
     custom_index = fetcher.calculate_composite_index('CUSTOM_COMPOSITE')
     if custom_index is not None:
-        print(custom_index.head())
+        logger.info("\n%s", custom_index.head())
