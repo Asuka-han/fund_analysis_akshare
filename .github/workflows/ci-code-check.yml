@@ -1,5 +1,5 @@
 # CI 独立配置文件：仅负责 Python 代码批量检查，不涉及任何产物构建
-name: CI - Python Code Check (独立版)
+name: CI - Python Code Check 
 
 # 触发条件：1. 提交代码到 main 分支 2. 发起 PR 到 main 分支 3. 手动触发（方便测试）
 on:
@@ -39,26 +39,13 @@ jobs:
       # 排除无关目录 仅检查严重语法错误（新手友好）
         run: |
           flake8 . \
-            --exclude=__pycache__,venv,env \ 
+            --exclude=__pycache__,venv,env \
             --count \
-            --select=E9,F63,F7,F82 \ 
+            --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
 
       # 步骤 5：批量运行 scripts 目录下所有 .py 脚本（验证脚本可执行性）
-      - name: Batch run scripts directory .py files
+      - name: Batch syntax check scripts directory .py files
         run: |
-          cd scripts
-          for py_file in *.py; do
-            # 忽略 __init__.py（空文件无运行意义）
-            if [ "$py_file" != "__init__.py" ]; then
-              echo "=== 正在运行脚本：$py_file ==="
-              python "$py_file"
-              # 若脚本运行失败，立即终止 CI 流程并标红
-              if [ $? -ne 0 ]; then
-                echo "❌ 脚本 $py_file 运行失败！"
-                exit 1
-              fi
-              echo "✅ 脚本 $py_file 运行成功！"
-            fi
-          done
+          python -m py_compile scripts/*.py

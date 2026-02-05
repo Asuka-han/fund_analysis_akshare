@@ -36,7 +36,7 @@ jobs:
           )
 
           # 创建统一产物目录
-          mkdir -p dist_windows
+          New-Item -ItemType Directory -Force -Path dist_windows | Out-Null
 
           # 遍历文件列表，逐个打包
           foreach ($py_file in $files) {
