@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 import time
 from contextlib import contextmanager
@@ -29,7 +30,10 @@ def log_function_call(func: Callable) -> Callable:
             elapsed = time.time() - start_time
             logger.debug(f"完成执行: {func.__name__}()，耗时 {elapsed:.2f}s")
             if perf_logger.handlers:
-                perf_logger.info(f"函数耗时 | {func.__module__}.{func.__name__} | {elapsed:.2f}s")
+                perf_logger.info(
+                    f"函数耗时 | {func.__module__}.{func.__name__} | {elapsed:.2f}s",
+                    stacklevel=2,
+                )
             return result
         except Exception as exc:
             elapsed = time.time() - start_time
@@ -38,7 +42,10 @@ def log_function_call(func: Callable) -> Callable:
                 exc_info=True,
             )
             if perf_logger.handlers:
-                perf_logger.info(f"函数失败 | {func.__module__}.{func.__name__} | {elapsed:.2f}s")
+                perf_logger.info(
+                    f"函数失败 | {func.__module__}.{func.__name__} | {elapsed:.2f}s",
+                    stacklevel=2,
+                )
             raise
 
     return wrapper
@@ -51,6 +58,12 @@ def log_time(task_name: str, logger: Optional[logging.Logger] = None):
         logger = logging.getLogger()
     perf_logger = logging.getLogger("performance")
 
+    # 获取调用者信息（跳过 contextmanager 和当前函数）
+    caller_frame = inspect.currentframe().f_back
+    caller_file = caller_frame.f_code.co_filename
+    caller_line = caller_frame.f_lineno
+    caller_func = caller_frame.f_code.co_name
+
     logger.info(f"开始: {task_name}")
     start_time = time.time()
 
@@ -60,13 +73,25 @@ def log_time(task_name: str, logger: Optional[logging.Logger] = None):
         elapsed = time.time() - start_time
         logger.error(f"失败: {task_name}，耗时 {elapsed:.2f}s，错误: {exc}", exc_info=True)
         if perf_logger.handlers:
-            perf_logger.info(f"任务失败 | {task_name} | {elapsed:.2f}s")
+            # 创建 LogRecord 手动设置 caller 信息
+            record = perf_logger.makeRecord(
+                perf_logger.name, logging.INFO, caller_file, caller_line,
+                f"任务失败 | {task_name} | {elapsed:.2f}s",
+                args=(), exc_info=None, func=caller_func
+            )
+            perf_logger.handle(record)
         raise
     else:
         elapsed = time.time() - start_time
         logger.info(f"完成: {task_name}，耗时 {elapsed:.2f}s")
         if perf_logger.handlers:
-            perf_logger.info(f"任务耗时 | {task_name} | {elapsed:.2f}s")
+            # 创建 LogRecord 手动设置 caller 信息
+            record = perf_logger.makeRecord(
+                perf_logger.name, logging.INFO, caller_file, caller_line,
+                f"任务耗时 | {task_name} | {elapsed:.2f}s",
+                args=(), exc_info=None, func=caller_func
+            )
+            perf_logger.handle(record)
 
 
 def log_data_summary(label: str, data: Any, logger: Optional[logging.Logger] = None) -> None:

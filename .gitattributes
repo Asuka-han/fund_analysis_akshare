@@ -1,0 +1,65 @@
+# ================= 核心规则（所有文件通用）=================
+# 所有文本文件自动识别，强制使用LF换行符，禁止Git自动转换CRLF
+* text=auto eol=lf
+# 所有二进制文件不做任何换行符处理，防止文件损坏
+* binary
+
+# ================= Python 项目核心文件 =================
+# .py 源码文件：强制LF，归为文本文件
+*.py text eol=lf
+# Python 编译文件/虚拟环境相关
+*.pyc binary
+*.pyd binary
+*.so binary
+# Jupyter 笔记
+*.ipynb text eol=lf
+
+# ================= 配置文件 =================
+# 你的config.py相关的配置文件类型
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ini text eol=lf
+*.toml text eol=lf
+*.env text eol=lf
+*.conf text eol=lf
+
+# ================= 文档/说明文件 =================
+*.md text eol=lf
+*.rst text eol=lf
+*.txt text eol=lf
+*.mdx text eol=lf
+
+# ================= 脚本/构建文件 =================
+# 壳脚本
+*.sh text eol=lf
+# Windows 批处理（保留CRLF，适配Windows执行）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# 构建文件
+Makefile text eol=lf
+makefile text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+
+# ================= 静态资源/二进制文件 =================
+# 图片（你的项目中有报表图片，重点标记）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg text eol=lf
+# 压缩包
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+# 其他二进制
+*.exe binary
+*.dll binary
+*.woff2 binary
+*.ttf binary
+
+# ================= Git 相关文件 =================
+.gitignore text eol=lf
+.gitattributes text eol=lf

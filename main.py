@@ -27,8 +27,13 @@ from src.utils.logger import log_time
 import config
 
 # 初始化输出管理器（同时用于日志路径）
-USE_TIMESTAMP = True
-_MAIN_OUTPUT_MANAGER = get_output_manager('main', base_dir=config.REPORTS_DIR, use_timestamp=USE_TIMESTAMP)
+_MAIN_OUTPUT_MANAGER = get_output_manager(
+    'main',
+    base_dir=config.REPORTS_DIR,
+    use_timestamp=config.REPORTS_USE_TIMESTAMP,
+    clean_old=config.REPORTS_CLEAN_ENABLED,
+    clean_days=config.REPORTS_RETENTION_DAYS,
+)
 _MAIN_LOG_DIR = LogConfig.resolve_log_dir('main', config.REPORTS_DIR)
 LogConfig.setup_root_logger(
     _MAIN_LOG_DIR,

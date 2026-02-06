@@ -22,8 +22,11 @@ DATA_DIR = PROJECT_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 
-# 输出路径
+# 输出路径  全项目统一时间戳和清理时间
 REPORTS_DIR = PROJECT_DIR / "reports"
+REPORTS_USE_TIMESTAMP = os.getenv("REPORTS_USE_TIMESTAMP", "true").lower() in {"1", "true", "yes"}
+REPORTS_CLEAN_ENABLED = os.getenv("REPORTS_CLEAN_ENABLED", "false").lower() in {"1", "true", "yes"}
+REPORTS_RETENTION_DAYS = int(os.getenv("REPORTS_RETENTION_DAYS", "7"))
 
 # 数据库配置
 DATABASE_PATH = DATA_DIR / "fund_data.db"

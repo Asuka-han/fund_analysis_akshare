@@ -42,10 +42,11 @@ class OutputManager:
         'backups': '备份文件'
     }
     
-    def __init__(self, script_type: str = 'main', 
+    def __init__(self, script_type: str = 'main',
                  base_dir: str = '.',
                  use_timestamp: bool = False,
-                 clean_old: bool = False):
+                 clean_old: bool = False,
+                 clean_days: int = 7):
         """
         初始化输出管理器
         
@@ -54,6 +55,7 @@ class OutputManager:
             base_dir: 基础目录
             use_timestamp: 是否使用时间戳子目录
             clean_old: 是否清理旧文件
+            clean_days: 清理多少天前的文件
         """
         self.script_type = script_type
         self.base_dir = Path(base_dir)
@@ -68,7 +70,7 @@ class OutputManager:
         
         # 清理旧文件（如果需要）
         if clean_old and not use_timestamp:
-            self.clean_old_files(days=7)
+            self.clean_old_files(days=clean_days)
     
     def _build_directory_structure(self) -> Dict[str, Path]:
         """构建目录结构"""
@@ -231,11 +233,28 @@ class OutputManager:
         """清理指定天数前的旧文件"""
         import time
         cutoff_time = time.time() - (days * 24 * 60 * 60)
-        
+        base_root = self.base_dir / self.script_type
+
+        if self.timestamp and base_root.exists():
+            for subdir in base_root.iterdir():
+                if not subdir.is_dir() or subdir == self.dirs.get('base'):
+                    continue
+                try:
+                    ts = datetime.strptime(subdir.name, "%Y%m%d_%H%M%S")
+                except ValueError:
+                    continue
+                if ts.timestamp() < cutoff_time:
+                    try:
+                        shutil.rmtree(subdir)
+                        logger.debug(f"清理旧目录: {subdir}")
+                    except Exception as e:
+                        logger.warning(f"清理目录失败 {subdir}: {e}")
+            return
+
         for dir_type, dir_path in self.dirs.items():
             if dir_type == 'base':
                 continue
-                
+
             if dir_path.exists():
                 for item in dir_path.rglob('*'):
                     if item.is_file():

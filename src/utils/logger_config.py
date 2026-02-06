@@ -26,7 +26,7 @@ class LogConfig:
     FORMATS = {
         "detailed": "%(asctime)s | %(name)-20s | %(levelname)-8s | %(category)-12s | %(funcName)-15s | %(message)s",
         "simple": "%(asctime)s | %(levelname)-8s | %(category)-12s | %(message)s",
-        "file": "%(asctime)s | %(name)s | %(levelname)s | %(category)s | %(funcName)s:%(lineno)d | %(message)s",
+        "file": "%(asctime)s | %(name)s | %(levelname)s | %(category)s | %(pathname)s:%(lineno)d | %(funcName)s | %(message)s",
     }
 
     class _CategoryFilter(logging.Filter):

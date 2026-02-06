@@ -338,7 +338,6 @@ fund_analysis_akshare/
 - **目录结构**：时间戳目录下的文件组织结构保持一致，便于追踪每次分析的结果。
 
 ### 时间戳用法
-#### 1. 启用时间戳（默认行为）
 所有脚本默认启用时间戳，无需额外参数：
 ```bash
 拥有时间戳的文件列表：
@@ -349,26 +348,16 @@ main.py
 update_db.py
 ```
 
-#### 2. 禁用时间戳
-使用 `no-timestamp` 参数或修改`use_timestamp=True/False` 禁用时间戳功能，将直接输出到基础目录：
-```bash  use_timestamp=True
-# 示例：禁用时间戳进行数据库分析
-python scripts/run_analysis_from_db.py --funds 000001.OF --no-timestamp
-或将 use_timestamp=True 改为 use_timestamp=False
 
-#### 3. 清理旧文件
-使用 `--clean-old` 参数清理指定天数前的旧文件（通常为7天）：
+### 全项目统一时间戳和清理时间
+在 [config.py](config.py) 修改：
 ```bash
-# 运行分析并清理旧文件
-python scripts/run_analysis_from_db.py --funds 000001.OF --clean-old
-
-# 更新数据库并清理旧文件
-python scripts/update_db.py --funds 000001.OF --clean-old
+REPORTS_DIR = PROJECT_DIR / "reports"
+REPORTS_USE_TIMESTAMP = os.getenv("REPORTS_USE_TIMESTAMP", "true").lower() in {"1", "true", "yes"}
+REPORTS_CLEAN_ENABLED = os.getenv("REPORTS_CLEAN_ENABLED", "false").lower() in {"1", "true", "yes"}
+REPORTS_RETENTION_DAYS = int(os.getenv("REPORTS_RETENTION_DAYS", "7"))
 ```
 
-#### 4. 输出位置示例
-- **启用时间戳**：`reports/db_analysis/20260119_160506/`、`reports/update_db/20260119_160812/` 等
-- **禁用时间戳**：`reports/db_analysis`、`reports/update_db` 等
 
 ### 时间戳优势
 - **版本控制**：每次运行的结果都有独立目录，方便对比不同时间点的分析结果

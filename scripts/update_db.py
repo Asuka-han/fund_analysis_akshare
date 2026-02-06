@@ -250,7 +250,13 @@ def main():
     backup_path = None
 
     # 初始化输出管理器
-    output_manager = get_output_manager('update_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
+    output_manager = get_output_manager(
+        'update_db',
+        base_dir=config.REPORTS_DIR,
+        use_timestamp=config.REPORTS_USE_TIMESTAMP,
+        clean_old=config.REPORTS_CLEAN_ENABLED,
+        clean_days=config.REPORTS_RETENTION_DAYS,
+    )
 
     # 配置日志到统一日志目录
     configure_logging(

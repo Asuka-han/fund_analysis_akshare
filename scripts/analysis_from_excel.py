@@ -46,7 +46,13 @@ from src.utils.logger import get_logger, log_time
 import config
 
 # 输出管理器（用于日志与文件落盘）
-OUTPUT_MANAGER = get_output_manager('excel_analysis', base_dir=config.REPORTS_DIR, use_timestamp=True)
+OUTPUT_MANAGER = get_output_manager(
+    'excel_analysis',
+    base_dir=config.REPORTS_DIR,
+    use_timestamp=config.REPORTS_USE_TIMESTAMP,
+    clean_old=config.REPORTS_CLEAN_ENABLED,
+    clean_days=config.REPORTS_RETENTION_DAYS,
+)
 
 logger = get_logger(__name__)
 

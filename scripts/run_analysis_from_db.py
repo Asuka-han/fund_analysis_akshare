@@ -45,8 +45,8 @@ import config
 
 logger = get_logger(__name__)
 
-# 统一时间戳开关（本文件仅此一处）
-USE_TIMESTAMP = True
+# 统一时间戳与清理策略（来自全局配置）
+USE_TIMESTAMP = config.REPORTS_USE_TIMESTAMP
 
 
 def configure_logging(log_dir: Path, verbose: bool = False, task_log_dir: Path = None):
@@ -68,7 +68,8 @@ def setup_output_directories(args):
         script_type='db_analysis',
         base_dir=config.REPORTS_DIR,
         use_timestamp=USE_TIMESTAMP,
-        clean_old=args.clean_old
+        clean_old=args.clean_old or config.REPORTS_CLEAN_ENABLED,
+        clean_days=args.clean_days,
     )
     
     
@@ -468,9 +469,11 @@ def main():
     # 输出组织参数
     parser.add_argument('--organize-by-fund', action='store_true',
                        help='按基金组织文件（每个基金独立目录）')
-    # 时间戳策略由 USE_TIMESTAMP 控制，不提供命令行开关，以保持与 main.py/analysis_from_excel.py 一致
+    # 时间戳策略由配置控制，不提供命令行开关
     parser.add_argument('--clean-old', action='store_true',
-                       help='清理7天前的旧文件')
+                       help='清理旧文件（配合 --clean-days 使用）')
+    parser.add_argument('--clean-days', type=int, default=config.REPORTS_RETENTION_DAYS,
+                       help='清理多少天前的文件（默认来自配置）')
 
     # 输出格式参数
     parser.add_argument('--output-html', type=lambda x: x.lower() == 'true',

@@ -592,7 +592,13 @@ def main():
     args = parse_arguments()
 
     start_time = datetime.now()
-    output_manager = get_output_manager('import_excel_to_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
+    output_manager = get_output_manager(
+        'import_excel_to_db',
+        base_dir=config.REPORTS_DIR,
+        use_timestamp=config.REPORTS_USE_TIMESTAMP,
+        clean_old=config.REPORTS_CLEAN_ENABLED,
+        clean_days=config.REPORTS_RETENTION_DAYS,
+    )
     configure_logging(
         LogConfig.resolve_log_dir('excel_import', config.REPORTS_DIR),
         args.verbose,
