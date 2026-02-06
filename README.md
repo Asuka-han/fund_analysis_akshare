@@ -453,4 +453,4 @@ REPORTS_RETENTION_DAYS = int(os.getenv("REPORTS_RETENTION_DAYS", "7"))
 - 对于数据库问题，可以尝试重置数据库：`python reset_database.py reset`
 
 
-![Star History Chart](https://api.star-history.com/svg?repos=gohugoio/hugo&type=Date)
+![GitHub Star](https://api.star-history.com/svg?repos=Asuka-han/fund-analysis-akshare&type=Date&theme=dark&range=1year&title=Fund-Analysis-akshare Star History)
