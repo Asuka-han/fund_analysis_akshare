@@ -24,9 +24,12 @@ def get_repo_root() -> Path:
 
 def get_storage_root() -> Path:
     """Return directory for writable data (exe dir when frozen)."""
+    override = os.getenv("FUND_ANALYSIS_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
-    return get_repo_root()
+    return Path.cwd()
 
 
 def add_project_paths() -> Tuple[Path, Path]:

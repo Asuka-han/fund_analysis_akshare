@@ -14,7 +14,7 @@ from src.utils.runtime_env import add_project_paths, get_repo_root, get_storage_
 # 确保在冻结/普通环境下均能正确找到项目路径
 REPO_ROOT, STORAGE_ROOT = add_project_paths()
 
-# 项目路径（可写目录，一般为仓库根目录或可执行文件所在目录）
+# 项目路径（可写目录，一般为当前工作目录或可执行文件所在目录）
 PROJECT_DIR = STORAGE_ROOT
 
 # 数据路径
@@ -312,6 +312,7 @@ def get_composite_components(index_code: str) -> List[Dict]:
 # 分析参数
 RISK_FREE_RATE = 0.02  # 无风险利率（2%）
 TRADING_DAYS = 252     # 年化交易日数
+ANNUALIZATION_DAYS = int(os.getenv("ANNUALIZATION_DAYS", str(TRADING_DAYS)))
 
 # 持有期配置
 HOLDING_PERIODS = [30, 60, 90, 180, 360]

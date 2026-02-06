@@ -833,8 +833,13 @@ class FundVisualizer:
         if benchmark_id:
             from ..utils.database import fund_db
             from .holding_simulation import HoldingSimulation
+            import config
             
-            simulator = HoldingSimulation()
+            simulator = HoldingSimulation(
+                risk_free_rate=config.RISK_FREE_RATE,
+                trading_days=config.TRADING_DAYS,
+                annualization_days=config.ANNUALIZATION_DAYS,
+            )
             
             for holding_days in simulation_results.keys():
                 returns = simulator.get_benchmark_returns(benchmark_id, holding_days)

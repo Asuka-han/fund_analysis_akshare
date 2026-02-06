@@ -30,7 +30,13 @@ import config
 USE_TIMESTAMP = True
 _MAIN_OUTPUT_MANAGER = get_output_manager('main', base_dir=config.REPORTS_DIR, use_timestamp=USE_TIMESTAMP)
 _MAIN_LOG_DIR = LogConfig.resolve_log_dir('main', config.REPORTS_DIR)
-LogConfig.setup_root_logger(_MAIN_LOG_DIR, level=logging.INFO, script_name='fund_analysis')
+LogConfig.setup_root_logger(
+    _MAIN_LOG_DIR,
+    level=logging.INFO,
+    script_name='fund_analysis',
+    base_dir=config.REPORTS_DIR,
+    task_log_dir=_MAIN_OUTPUT_MANAGER.get_path('logs'),
+)
 logger = get_logger(__name__)
 
 
@@ -54,7 +60,8 @@ class FundAnalysisPipeline:
         )
         self.holding_simulator = HoldingSimulation(
             risk_free_rate=config.RISK_FREE_RATE,
-            trading_days=config.TRADING_DAYS
+            trading_days=config.TRADING_DAYS,
+            annualization_days=config.ANNUALIZATION_DAYS,
         )
         # 使用输出管理器初始化可视化器
         self.visualizer = FundVisualizer(output_dir=self.output_manager.get_path('plots'), 
@@ -168,7 +175,7 @@ class FundAnalysisPipeline:
                     if ok:
                         logger.info(f"详细绩效结果已保存: {detail_path}")
                 except Exception as e:
-                    logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}")
+                    logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}", exc_info=True)
         
         return funds_performance, indices_performance
     
@@ -375,7 +382,7 @@ class FundAnalysisPipeline:
             logger.info(f"分析报告已生成: {report_path}")
             
         except Exception as e:
-            logger.error(f"生成报告失败: {e}")
+            logger.error(f"生成报告失败: {e}", exc_info=True)
     
     def _create_report_content(self) -> str:
         """创建报告内容"""
@@ -490,7 +497,7 @@ python main.py
             self.output_manager.print_summary()
             
         except Exception as e:
-            logger.error(f"项目运行失败: {e}")
+            logger.error(f"项目运行失败: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
             return False

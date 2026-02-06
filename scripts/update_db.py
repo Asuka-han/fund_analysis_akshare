@@ -41,16 +41,22 @@ from src.utils.database import fund_db
 from src.utils.fund_code_manager import fund_code_manager
 from src.utils.output_manager import get_output_manager
 from src.utils.logger_config import LogConfig
-from src.utils.logger import get_logger
+from src.utils.logger import get_logger, log_time
 import config
 
 logger = get_logger(__name__)
 
 
-def configure_logging(log_dir: Path, verbose: bool = False):
+def configure_logging(log_dir: Path, verbose: bool = False, task_log_dir: Path = None):
     """配置日志输出到控制台和文件"""
     level = logging.DEBUG if verbose else logging.INFO
-    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="update_db")
+    LogConfig.setup_root_logger(
+        log_dir=log_dir,
+        level=level,
+        script_name="update_db",
+        base_dir=config.REPORTS_DIR,
+        task_log_dir=task_log_dir,
+    )
 
 
 def backup_database(backup_name: str = None):
@@ -78,7 +84,7 @@ def backup_database(backup_name: str = None):
         logger.info(f"数据库已备份到: {backup_path}")
         return str(backup_path)
     except PermissionError as e:
-        logger.error(f"备份数据库失败：权限不足 - {e}")
+        logger.error(f"备份数据库失败：权限不足 - {e}", exc_info=True)
         logger.info("尝试使用不同的备份路径...")
         # 尝试备份到用户目录或其他位置
         try:
@@ -91,10 +97,10 @@ def backup_database(backup_name: str = None):
             logger.info(f"数据库已备份到: {user_backup_path}")
             return str(user_backup_path)
         except Exception as fallback_error:
-            logger.error(f"备用备份也失败了: {fallback_error}")
+            logger.error(f"备用备份也失败了: {fallback_error}", exc_info=True)
             return None
     except Exception as e:
-        logger.error(f"备份数据库失败: {e}")
+        logger.error(f"备份数据库失败: {e}", exc_info=True)
         return None
 
 
@@ -135,7 +141,7 @@ def fetch_funds_data(fund_codes, start_date=None, end_date=None, force_replace=F
             logger.info(f"基金 {fund_code} 数据保存完成，新增 {inserted} 条记录")
             
         except Exception as e:
-            logger.error(f"处理基金 {fund_code} 时出错: {e}")
+            logger.error(f"处理基金 {fund_code} 时出错: {e}", exc_info=True)
     
     return total_inserted
 
@@ -171,7 +177,7 @@ def fetch_indices_data(index_codes, start_date=None, end_date=None, force_replac
             logger.info(f"指数 {index_code} 数据保存完成，新增 {inserted} 条记录")
             
         except Exception as e:
-            logger.error(f"处理指数 {index_code} 时出错: {e}")
+            logger.error(f"处理指数 {index_code} 时出错: {e}", exc_info=True)
     
     return total_inserted
 
@@ -247,7 +253,11 @@ def main():
     output_manager = get_output_manager('update_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
 
     # 配置日志到统一日志目录
-    configure_logging(LogConfig.resolve_log_dir('update_db', config.REPORTS_DIR), args.verbose)
+    configure_logging(
+        LogConfig.resolve_log_dir('update_db', config.REPORTS_DIR),
+        args.verbose,
+        task_log_dir=output_manager.get_path('logs'),
+    )
 
     logger.info("开始更新数据库")
     logger.info("=" * 60)
@@ -286,23 +296,25 @@ def main():
     fund_count = 0
     if args.funds:
         logger.info("更新基金数据（%s 只）", len(args.funds))
-        fund_count = fetch_funds_data(
-            args.funds,
-            args.start_date,
-            args.end_date,
-            args.force_replace
-        )
+        with log_time("更新基金数据", logger):
+            fund_count = fetch_funds_data(
+                args.funds,
+                args.start_date,
+                args.end_date,
+                args.force_replace
+            )
     
     # 更新指数数据
     index_count = 0
     if args.indices:
         logger.info("更新指数数据（%s 个）", len(args.indices))
-        index_count = fetch_indices_data(
-            args.indices,
-            args.start_date,
-            args.end_date,
-            args.force_replace
-        )
+        with log_time("更新指数数据", logger):
+            index_count = fetch_indices_data(
+                args.indices,
+                args.start_date,
+                args.end_date,
+                args.force_replace
+            )
     
     # 输出总结
     logger.info("=" * 60)

@@ -16,7 +16,7 @@ import config
 logger = get_logger(__name__)
 
 
-def reset_database(db_path: str = "data/fund_data.db"):
+def reset_database(db_path: str = "./data/fund_data.db"):
     """
     重置数据库，删除所有表并重新创建
     
@@ -44,7 +44,7 @@ def reset_database(db_path: str = "data/fund_data.db"):
         logger.info("数据库重置完成")
         
     except Exception as e:
-        logger.error(f"数据库重置失败: {e}")
+        logger.error(f"数据库重置失败: {e}", exc_info=True)
         # 如果失败，尝试恢复备份
         if backup_path.exists():
             backup_path.rename(db_path)
@@ -188,11 +188,11 @@ def init_database(db_path: Path):
         logger.info(f"数据库初始化完成: {db_path}")
         
     except Exception as e:
-        logger.error(f"数据库初始化失败: {e}")
+        logger.error(f"数据库初始化失败: {e}", exc_info=True)
         raise
 
 
-def check_database_structure(db_path: str = "data/fund_data.db"):
+def check_database_structure(db_path: str = "./data/fund_data.db"):
     """
     检查数据库表结构
     
@@ -226,7 +226,7 @@ def check_database_structure(db_path: str = "data/fund_data.db"):
         return True
         
     except Exception as e:
-        logger.error(f"检查数据库结构失败: {e}")
+        logger.error(f"检查数据库结构失败: {e}", exc_info=True)
         return False
 
 
@@ -237,15 +237,16 @@ def main():
     parser = argparse.ArgumentParser(description="数据库管理工具")
     parser.add_argument('action', choices=['reset', 'check', 'backup'], 
                        help='操作类型: reset-重置, check-检查, backup-备份')
-    parser.add_argument('--db-path', default='data/fund_data.db', 
-                       help='数据库文件路径 (默认: data/fund_data.db)')
+    parser.add_argument('--db-path', default='./data/fund_data.db', 
+                       help='数据库文件路径 (默认: ./data/fund_data.db)')
     
     args = parser.parse_args()
 
     LogConfig.setup_root_logger(
         LogConfig.resolve_log_dir('reset_database', config.REPORTS_DIR),
         level=logging.INFO,
-        script_name='reset_database'
+        script_name='reset_database',
+        base_dir=config.REPORTS_DIR,
     )
     
     if args.action == 'reset':

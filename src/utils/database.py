@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class FundDatabase:
     """基金数据库管理类"""
     
-    def __init__(self, db_path: str = "data/fund_data.db"):
+    def __init__(self, db_path: str = "./data/fund_data.db"):
         """
         初始化数据库
         
@@ -251,7 +251,7 @@ class FundDatabase:
             return True
             
         except Exception as e:
-            logger.error(f"插入基金信息失败: {e}")
+            logger.error(f"插入基金信息失败: {e}", exc_info=True)
             return False
     
     def insert_fund_daily_data(self, fund_id: str, daily_data: pd.DataFrame) -> int:
@@ -301,7 +301,7 @@ class FundDatabase:
             return inserted_count
             
         except Exception as e:
-            logger.error(f"插入基金日频数据失败: {e}")
+            logger.error(f"插入基金日频数据失败: {e}", exc_info=True)
             return 0
     
     def insert_index_daily_data(self, index_id: str, daily_data: pd.DataFrame) -> int:
@@ -344,7 +344,7 @@ class FundDatabase:
             return inserted_count
             
         except Exception as e:
-            logger.error(f"插入指数数据失败: {e}")
+            logger.error(f"插入指数数据失败: {e}", exc_info=True)
             return 0
     
     def get_fund_daily_data(self, fund_id: str, start_date: str = None, end_date: str = None,
@@ -415,7 +415,7 @@ class FundDatabase:
             return df
             
         except Exception as e:
-            logger.error(f"获取基金数据失败: {e}")
+            logger.error(f"获取基金数据失败: {e}", exc_info=True)
             return pd.DataFrame()
     
     def get_all_funds(self, use_chinese_columns: bool = False) -> pd.DataFrame:
@@ -428,7 +428,7 @@ class FundDatabase:
                 df = self._rename_columns(df, 'funds')
             return df
         except Exception as e:
-            logger.error(f"获取基金列表失败: {e}")
+            logger.error(f"获取基金列表失败: {e}", exc_info=True)
             return pd.DataFrame()
     
     def get_index_daily_data(self, index_id: str, start_date: str = None, end_date: str = None,
@@ -484,7 +484,7 @@ class FundDatabase:
             return df
             
         except Exception as e:
-            logger.error(f"获取指数数据失败: {e}")
+            logger.error(f"获取指数数据失败: {e}", exc_info=True)
             return pd.DataFrame()
     
     def check_data_exists(self, table: str, id_column: str, id_value: str) -> bool:
@@ -511,7 +511,7 @@ class FundDatabase:
             return result
             
         except Exception as e:
-            logger.error(f"检查数据存在失败: {e}")
+            logger.error(f"检查数据存在失败: {e}", exc_info=True)
             return False
 
     def upsert_performance_metrics(self, df: pd.DataFrame) -> int:
@@ -583,7 +583,7 @@ class FundDatabase:
             return count
 
         except Exception as e:
-            logger.error(f"写入绩效指标失败: {e}")
+            logger.error(f"写入绩效指标失败: {e}", exc_info=True)
             return 0
     
     def get_all_indices(self, use_chinese_columns: bool = False) -> pd.DataFrame:
@@ -597,7 +597,7 @@ class FundDatabase:
                 df.rename(columns={'index_id': '指数代码'}, inplace=True)
             return df
         except Exception as e:
-            logger.error(f"获取指数列表失败: {e}")
+            logger.error(f"获取指数列表失败: {e}", exc_info=True)
             return pd.DataFrame()
 
 

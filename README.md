@@ -113,9 +113,9 @@ pip3 install -r requirements.txt
 python main.py
 ```
 3. 输出位置：
-   - 数据库：data/fund_data.db
-   - 图表：plots/（PNG 与 HTML）
-   - 报告：reports/analysis_report.md、performance_summary.xlsx
+  - 数据库：./data/fund_data.db
+  - 图表：./reports/plots/（PNG 与 HTML）
+  - 报告：./reports/analysis_report.md、performance_summary.xlsx
 
 
 
@@ -151,9 +151,9 @@ python scripts/update_db.py --funds 000001.OF --backup --backup-name my_backup.d
 
 **输出内容与位置**：
 - 数据库更新：新增基金和指数数据到 `fund_daily_data` 和 `index_daily_data` 表
-- 备份文件：可选，保存在 `data/` 目录下，文件名格式：`fund_data_YYYYMMDD_HHMMSS.db.bak`
-- 导入报告：`reports/data_import_report.md`
-- 日志文件：`reports/logs/update_db.log`
+- 备份文件：可选，保存在 `./data/` 目录下，文件名格式：`fund_data_YYYYMMDD_HHMMSS.db.bak`
+- 导入报告：`./reports/data_import_report.md`
+- 日志文件：`./reports/logs/update_db.log`
 
 ### 3. 数据库分析工具 (run_analysis_from_db.py)
 **功能**：仅从现有数据库进行分析（增强版），使用输出管理器避免文件混乱，为每个基金创建独立目录，支持多种输出格式和组织方式。
@@ -186,12 +186,12 @@ python scripts/run_analysis_from_db.py --funds 000001.OF --clean-old
 ```
 
 **输出内容与位置**：
-- 绩效分析Excel：`reports/excel_performance/performance_analysis.xlsx`
-- 持有期分析Excel：`reports/excel_holding/holding_analysis_{基金代码}.xlsx`
-- 静态图表：`reports/plots/static/{基金名}/` 目录下的PNG文件
-- 交互式图表：`reports/plots/interactive/{基金名}/` 目录下的HTML文件
-- 分析摘要：`reports/分析摘要.md`
-- 日志文件：`reports/logs/run_analysis.log`
+- 绩效分析Excel：`./reports/excel_performance/performance_analysis.xlsx`
+- 持有期分析Excel：`./reports/excel_holding/holding_analysis_{基金代码}.xlsx`
+- 静态图表：`./reports/plots/static/{基金名}/` 目录下的PNG文件
+- 交互式图表：`./reports/plots/interactive/{基金名}/` 目录下的HTML文件
+- 分析摘要：`./reports/分析摘要.md`
+- 日志文件：`./reports/logs/run_analysis.log`
 
 ### 4. Excel直接分析工具 (analysis_from_excel.py)
 **功能**：从Excel文件直接进行分析，不写入主数据库（可选）。支持直接读取Excel中的基金数据并生成分析报告和图表。
@@ -221,17 +221,18 @@ python scripts/analysis_from_excel.py --input data/fund_data.xlsx --verbose
 ```
 
 **输出内容与位置**：
-- 绩效摘要Excel：`reports/excel_performance/performance_summary.xlsx`
-- 持有期分析Excel：`reports/excel_holding/holding_analysis_{基金代码}.xlsx`
-- 静态图表：`reports/plots/static/` 目录下的PNG文件
-- 交互式图表：`reports/plots/interactive/` 目录下的HTML文件
-- 分析报告：`reports/excel_analysis_report.md`
-- 日志文件：`reports/logs/excel_analysis.log`
+- 绩效摘要Excel：`./reports/excel_performance/performance_summary.xlsx`
+- 持有期分析Excel：`./reports/excel_holding/holding_analysis_{基金代码}.xlsx`
+- 静态图表：`./reports/plots/static/` 目录下的PNG文件
+- 交互式图表：`./reports/plots/interactive/` 目录下的HTML文件
+- 分析报告：`./reports/excel_analysis_report.md`
+- 日志文件：`./reports/logs/excel_analysis.log`
 
 ## 项目结构
 ```
-fund_analysis_project/
+fund_analysis_akshare/
 ├── reports/                  # 分析报告、Excel文件、可视化
+│   ├── logs/                 # 统一日志根目录
 │   ├── db_analysis/          # 数据库分析报告
 │   ├── excel_analysis/       # Excel分析报告
 │   ├── import_excel_to_db/   # Excel导入数据库报告
@@ -275,9 +276,37 @@ fund_analysis_project/
     - `OUTPUT_HTML_NAV_DRAWDOWN = True`：控制净值+回撤（交互）HTML 输出。
     - `OUTPUT_HTML_HOLDING_DIST = True`：控制持有期收益率分布（交互）HTML 输出。
   - 设为 `False` 即关闭对应类型 HTML 的写出，PNG 仍会输出。
+ - 年化参数
+   - 在 [config.py](config.py) 中通过 `RISK_FREE_RATE`、`TRADING_DAYS` 配置无风险利率与交易日基准。
+   - 可通过环境变量 `ANNUALIZATION_DAYS` 覆盖年化天数（例如 252 或 365）。
  - 数据抓取年限
    - 在 [config.py](config.py) 中通过 `DEFAULT_FETCH_YEARS = 5` 控制默认抓取年限（基金与指数）。
    - 如需确保 360 天持有期分析，建议不低于 2 年；本项目默认 5 年，以提高覆盖率。
+   
+用于控制输出根目录、年化基准和日志格式：
+- `FUND_ANALYSIS_ROOT`
+    - 作用：指定数据库与 reports 的输出根目录。
+    - 示例：
+    1. 设置环境变量
+    `$env:FUND_ANALYSIS_ROOT = "地址"`（临时生效）
+    `[Environment]::SetEnvironmentVariable("FUND_ANALYSIS_ROOT", "地址", "User")`（永久设置）
+    `[Environment]::SetEnvironmentVariable("FUND_ANALYSIS_ROOT", $null, "User")`（删除永久配置）
+    2. 运行你的代码
+    `python main.py`
+    - 说明：未设置时会自动存到运行代码时的当前工作目录
+- `ANNUALIZATION_DAYS`
+    - 作用：控制年化基准天数（如 252 或 365）。
+    - 示例：`ANNUALIZATION_DAYS=365`
+    - 说明：未设置时默认使用 `TRADING_DAYS`（252）。
+- `LOG_FORMAT`
+    - 作用：控制日志输出格式。
+    - 示例：`LOG_FORMAT=json`
+    - 说明：默认文本格式，设置为 `json` 输出结构化日志。
+
+
+
+
+
 
 ## 数据库结构
 - 表 `funds`：基金基本信息（fund_id、name、type、inception_date、manager）。
@@ -355,11 +384,11 @@ python scripts/update_db.py --funds 000001.OF --clean-old
 - **代码位置**: [src/analysis/performance.py](src/analysis/performance.py)
 
 ### 2. 年化收益率 (Annualized Return)
-- **公式**: `(期末净值 / 期初净值) ^ (252 / 实际天数) - 1`
+- **公式**: `(期末净值 / 期初净值) ^ (ANNUALIZATION_DAYS / 实际天数) - 1`
 - **代码位置**: [src/analysis/performance.py](src/analysis/performance.py)
 
 ### 3. 年化波动率 (Annualized Volatility)
-- **公式**: `日收益率标准差 × sqrt(252)` (其中252为年交易日数)
+- **公式**: `日收益率标准差 × sqrt(ANNUALIZATION_DAYS)`
 - **代码位置**: [src/analysis/performance.py](src/analysis/performance.py)
 
 ### 4. 最大回撤 (Maximum Drawdown)
@@ -380,7 +409,12 @@ python scripts/update_db.py --funds 000001.OF --clean-old
 
 这些指标的计算代码主要位于 [src/analysis/performance.py](src/analysis/performance.py) 和 [src/analysis/holding_simulation.py](src/analysis/holding_simulation.py) 文件中，便于审计验证和二次开发。
 
-## 进阶功能与基准线管理
+### 修改方法
+- 需要调整年化基准天数：优先设置环境变量 `ANNUALIZATION_DAYS`，或在 [config.py](config.py) 修改 `TRADING_DAYS`。
+- 需要调整无风险利率：修改 [config.py](config.py) 中的 `RISK_FREE_RATE`。
+- 需要调整持有期列表：修改 [config.py](config.py) 中的 `HOLDING_PERIODS`。
+
+## 可视化与基准线管理
 - 基准线管理（多条增删）：在 [src/analysis/visualization.py](src/analysis/visualization.py) 的 `FundVisualizer` 提供：
   - `add_baseline(chart_type, name, value, color=None, linestyle='--', linewidth=2.0)`
   - `remove_baseline(chart_type, name)`
@@ -404,7 +438,7 @@ python scripts/update_db.py --funds 000001.OF --clean-old
 - Q: 如何重置数据库？
   - A: 在终端运行 `python reset_database.py reset` 将清除所有数据表并重建。
 - Q: 输出文件在哪？
-  - A: PNG/HTML 在 [plots](plots)；数据库在 [data/fund_data.db](data/fund_data.db)；报告与 Excel 在 [reports](reports)。
+  - A: PNG/HTML 在 [reports/plots](reports/plots)；数据库在 [data/fund_data.db](data/fund_data.db)；报告与 Excel 在 [reports](reports)。
 - Q: 我有Excel格式的基金数据，如何导入数据库？
   - A: 使用 `python scripts/import_excel_to_db.py -i 你的文件.xlsx`，支持多种列名映射和重复处理策略。
 - Q: 如何仅更新数据库而不进行分析？
@@ -424,7 +458,7 @@ python scripts/update_db.py --funds 000001.OF --clean-old
 如果遇到问题，请检查以下几点：
 - 确保网络连接正常，因为需要从 AKShare 获取数据
 - 检查 Python 版本是否符合要求
-- 查看日志文件 `fund_analysis.log` 获取详细错误信息
+- 查看日志文件 `./reports/logs/main/` 或全局 `./reports/logs/error.log` 获取详细错误信息
 - 确保有足够磁盘空间存储数据和图表文件
 - 对于Excel导入问题，检查Excel文件格式是否符合要求（必需列：date、nav或cumulative_nav）
 - 对于数据库问题，可以尝试重置数据库：`python reset_database.py reset`

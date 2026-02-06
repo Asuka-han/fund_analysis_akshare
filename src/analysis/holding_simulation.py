@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import warnings
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from ..utils.database import fund_db
 from ..utils.logger import get_logger
@@ -56,7 +56,12 @@ def _rename_simulation_columns(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
 class HoldingSimulation:
     """持有期收益模拟类"""
     
-    def __init__(self, risk_free_rate: float = 0.02, trading_days: int = 252):
+    def __init__(
+        self,
+        risk_free_rate: float = 0.02,
+        trading_days: int = 252,
+        annualization_days: Optional[int] = None,
+    ):
         """
         初始化持有期模拟器
         
@@ -66,7 +71,62 @@ class HoldingSimulation:
         """
         self.risk_free_rate = risk_free_rate
         self.trading_days = trading_days
+        self.annualization_days = annualization_days or trading_days
         self.analyzer = PerformanceAnalyzer(risk_free_rate, trading_days)
+
+    def _prepare_nav_series(self, nav_series: pd.Series) -> pd.Series:
+        """确保净值序列有序且索引为DatetimeIndex"""
+        if not isinstance(nav_series.index, pd.DatetimeIndex):
+            nav_series = nav_series.copy()
+            nav_series.index = pd.to_datetime(nav_series.index)
+        return nav_series.sort_index().dropna()
+
+    def _get_last_valid_buy_index(self, dates: pd.DatetimeIndex, holding_days: int) -> int:
+        """返回最后一个可形成完整持有期的买入索引"""
+        target_dates = dates + pd.Timedelta(days=holding_days)
+        first_ge = dates.searchsorted(target_dates, side="left")
+        valid_mask = first_ge < len(dates)
+        if not valid_mask.any():
+            return -1
+        return int(np.where(valid_mask)[0][-1])
+
+    def _find_sell_index(self, dates: pd.DatetimeIndex, buy_index: int, holding_days: int) -> int:
+        """根据自然日持有期找到卖出索引（非交易日取前一交易日）"""
+        target_date = dates[buy_index] + pd.Timedelta(days=holding_days)
+        sell_index = dates.searchsorted(target_date, side="right") - 1
+        if sell_index <= buy_index:
+            return -1
+        return int(sell_index)
+
+    def _compute_holding_returns(self, nav_series: pd.Series, holding_days: int) -> pd.Series:
+        """计算持有期收益率序列（按自然日持有期）"""
+        nav_series = self._prepare_nav_series(nav_series)
+        if len(nav_series) < 2:
+            return pd.Series(dtype=float)
+
+        dates = nav_series.index
+        if (dates[-1] - dates[0]).days < holding_days:
+            return pd.Series(dtype=float)
+
+        last_valid_index = self._get_last_valid_buy_index(dates, holding_days)
+        if last_valid_index < 0:
+            return pd.Series(dtype=float)
+
+        returns = []
+        target_dates = dates + pd.Timedelta(days=holding_days)
+        for i in range(last_valid_index + 1):
+            sell_index = dates.searchsorted(target_dates[i], side="right") - 1
+            if sell_index <= i:
+                continue
+            sell_date = dates[sell_index]
+            days_held = (sell_date - dates[i]).days
+            if days_held < holding_days:
+                continue
+            buy_nav = nav_series.iloc[i]
+            sell_nav = nav_series.iloc[sell_index]
+            returns.append((sell_nav / buy_nav) - 1)
+
+        return pd.Series(returns, dtype=float)
 
     def simulate_holding_period(self, nav_series: pd.Series, 
                                 holding_days: int,
@@ -82,26 +142,44 @@ class HoldingSimulation:
         Returns:
             模拟结果DataFrame
         """
-        # 为360天持有期调整最小数据点数要求
-        required_points = holding_days + min_data_points
-        if holding_days == 360:
-            # 对于360天持有期，只需要比持有天数多一点的数据
-            required_points = holding_days + 5
-        
-        if len(nav_series) < required_points:
-            logger.warning(f"数据不足: 需要至少 {required_points} 个数据点，但只有 {len(nav_series)} 个数据点，持有期: {holding_days}天")
+        nav_series = self._prepare_nav_series(nav_series)
+        if len(nav_series) < min_data_points + 1:
+            logger.warning(
+                "数据不足: 需要至少 %s 个数据点，但只有 %s 个数据点，持有期: %s天",
+                min_data_points + 1,
+                len(nav_series),
+                holding_days,
+            )
+            return pd.DataFrame()
+        if (nav_series.index[-1] - nav_series.index[0]).days < holding_days:
+            logger.warning(
+                "数据跨度不足: 需要至少 %s 天，实际跨度 %s 天，持有期: %s天",
+                holding_days,
+                (nav_series.index[-1] - nav_series.index[0]).days,
+                holding_days,
+            )
             return pd.DataFrame()
         
         results = []
         dates = nav_series.index
         
-        # 遍历所有可能的买入点
-        for i in range(len(nav_series) - holding_days):
+        last_valid_index = self._get_last_valid_buy_index(dates, holding_days)
+        if last_valid_index < 0:
+            return pd.DataFrame()
+
+        # 遍历有效买入点
+        for i in range(last_valid_index + 1):
             buy_date = dates[i]
-            sell_date = dates[i + holding_days]
+            sell_index = self._find_sell_index(dates, i, holding_days)
+            if sell_index < 0:
+                continue
+            sell_date = dates[sell_index]
+            days_held = (sell_date - buy_date).days
+            if days_held < holding_days:
+                continue
             
             # 获取持有期内的净值
-            holding_nav = nav_series.iloc[i:i + holding_days + 1]
+            holding_nav = nav_series.iloc[i:sell_index + 1]
             
             # 计算持有期收益率
             holding_return = (holding_nav.iloc[-1] / holding_nav.iloc[0]) - 1
@@ -110,9 +188,8 @@ class HoldingSimulation:
             holding_max_dd, _, _ = self.analyzer.calculate_max_drawdown(holding_nav)
             
             # 计算持有期年化收益率
-            days_held = (sell_date - buy_date).days
             if days_held > 0:
-                annual_return = (1 + holding_return) ** (self.trading_days / days_held) - 1
+                annual_return = (1 + holding_return) ** (self.annualization_days / days_held) - 1
             else:
                 annual_return = 0
             
@@ -120,11 +197,11 @@ class HoldingSimulation:
             holding_returns = holding_nav.pct_change().dropna()
             if len(holding_returns) > 1:
                 daily_vol = holding_returns.std()
-                annual_vol = daily_vol * np.sqrt(self.trading_days)
+                annual_vol = daily_vol * np.sqrt(self.annualization_days)
                 
                 # 计算持有期夏普比率
                 if annual_vol > 0:
-                    sharpe_ratio = (annual_return - self.risk_free_rate * (holding_days / self.trading_days)) / annual_vol
+                    sharpe_ratio = (annual_return - self.risk_free_rate) / annual_vol
                 else:
                     sharpe_ratio = 0
             else:
@@ -200,22 +277,10 @@ class HoldingSimulation:
         
         # 使用收盘价作为净值
         nav_series = df['close'].dropna()
-        
-        if len(nav_series) < holding_days + 10:
+        returns = self._compute_holding_returns(nav_series, holding_days)
+        if returns.empty:
             logger.warning(f"基准指数数据不足: {benchmark_id}, 只有 {len(nav_series)} 个数据点")
-            return pd.Series()
-        
-        # 计算持有期收益率
-        returns = []
-        dates = nav_series.index
-        
-        for i in range(len(nav_series) - holding_days):
-            buy_nav = nav_series.iloc[i]
-            sell_nav = nav_series.iloc[i + holding_days]
-            holding_return = (sell_nav / buy_nav) - 1
-            returns.append(holding_return)
-        
-        return pd.Series(returns)
+        return returns
     
     def analyze_fund_holding(self, fund_id: str,
                             holding_periods: List[int] = None,
@@ -461,21 +526,7 @@ class HoldingSimulation:
             return pd.Series()
         
         nav_series = df['close'].dropna()
-        
-        if len(nav_series) < holding_days + 10:
-            return pd.Series()
-        
-        # 计算持有期收益率
-        returns = []
-        dates = nav_series.index
-        
-        for i in range(len(nav_series) - holding_days):
-            buy_nav = nav_series.iloc[i]
-            sell_nav = nav_series.iloc[i + holding_days]
-            holding_return = (sell_nav / buy_nav) - 1
-            returns.append(holding_return)
-        
-        return pd.Series(returns)
+        return self._compute_holding_returns(nav_series, holding_days)
 
 
 def main():

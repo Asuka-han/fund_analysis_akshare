@@ -40,7 +40,7 @@ from src.analysis.visualization import FundVisualizer
 from src.utils.database import fund_db
 from src.utils.output_manager import OutputManager, get_output_manager
 from src.utils.logger_config import LogConfig
-from src.utils.logger import get_logger
+from src.utils.logger import get_logger, log_time
 import config
 
 logger = get_logger(__name__)
@@ -49,10 +49,16 @@ logger = get_logger(__name__)
 USE_TIMESTAMP = True
 
 
-def configure_logging(log_dir: Path, verbose: bool = False):
+def configure_logging(log_dir: Path, verbose: bool = False, task_log_dir: Path = None):
     """配置日志输出到控制台和文件"""
     level = logging.DEBUG if verbose else logging.INFO
-    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="db_analysis")
+    LogConfig.setup_root_logger(
+        log_dir=log_dir,
+        level=level,
+        script_name="db_analysis",
+        base_dir=config.REPORTS_DIR,
+        task_log_dir=task_log_dir,
+    )
 
 
 def setup_output_directories(args):
@@ -65,9 +71,6 @@ def setup_output_directories(args):
         clean_old=args.clean_old
     )
     
-    # 打印目录信息
-    if args.verbose:
-        output_mgr.print_summary()
     
     return output_mgr
 
@@ -94,7 +97,7 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
                 else:
                     logger.warning("失败: 数据不足或计算错误")
             except Exception as e:
-                logger.error(f"分析基金 {fund_id} 失败: {e}")
+                logger.error(f"分析基金 {fund_id} 失败: {e}", exc_info=True)
     
     # 分析指数
     if index_ids:
@@ -109,7 +112,7 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
                 else:
                     logger.warning("失败: 数据不足或计算错误")
             except Exception as e:
-                logger.error(f"分析指数 {index_id} 失败: {e}")
+                logger.error(f"分析指数 {index_id} 失败: {e}", exc_info=True)
 
     # 保存到Excel（使用输出管理器）
     if results:
@@ -143,7 +146,7 @@ def analyze_performance(fund_ids, index_ids, output_mgr):
                     if ok:
                         logger.info("详细绩效已保存: %s", detail_path.name)
                 except Exception as e:
-                    logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}")
+                    logger.error(f"保存基金 {fund_id} 详细绩效失败: {e}", exc_info=True)
     
     return results
 
@@ -152,7 +155,8 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
     """分析持有期收益"""
     simulator = HoldingSimulation(
         risk_free_rate=config.RISK_FREE_RATE,
-        trading_days=config.TRADING_DAYS
+        trading_days=config.TRADING_DAYS,
+        annualization_days=config.ANNUALIZATION_DAYS,
     )
     
     # 创建可视化器（使用输出管理器）
@@ -263,8 +267,8 @@ def analyze_holding_periods(fund_ids, periods, output_mgr, output_html, organize
             logger.info("持有期结果已保存: %s", excel_path.name)
             
         except Exception as e:
-            logger.error(f"分析基金 {fund_id} 持有期失败: {e}")
-            logger.error("持有期分析失败: %s", e)
+            logger.error(f"分析基金 {fund_id} 持有期失败: {e}", exc_info=True)
+            logger.error("持有期分析失败: %s", e, exc_info=True)
 
     return all_results
 
@@ -352,8 +356,8 @@ def generate_charts(fund_ids, output_mgr, output_html, organize_by_fund):
             logger.info("%s: 图表生成完成", fund_name)
 
         except Exception as e:
-            logger.error(f"生成基金 {fund_id} 图表失败: {e}")
-            logger.error("%s: 图表生成失败", fund_id)
+            logger.error(f"生成基金 {fund_id} 图表失败: {e}", exc_info=True)
+            logger.error("%s: 图表生成失败", fund_id, exc_info=True)
 
 
 def generate_performance_comparison(fund_ids, output_mgr):
@@ -392,8 +396,8 @@ def generate_performance_comparison(fund_ids, output_mgr):
             logger.info("绩效对比图: %s", output_path.name)
 
     except Exception as e:
-        logger.error(f"生成绩效对比图失败: {e}")
-        logger.error("绩效对比图生成失败: %s", e)
+        logger.error(f"生成绩效对比图失败: {e}", exc_info=True)
+        logger.error("绩效对比图生成失败: %s", e, exc_info=True)
 
 
 def create_summary_report(output_mgr, fund_count, index_count, holding_count):
@@ -439,7 +443,7 @@ def create_summary_report(output_mgr, fund_count, index_count, holding_count):
         logger.info("分析摘要已保存: %s", report_path)
 
     except Exception as e:
-        logger.error(f"创建摘要报告失败: {e}")
+        logger.error(f"创建摘要报告失败: {e}", exc_info=True)
 
 
 def main():
@@ -476,11 +480,21 @@ def main():
 
     args = parser.parse_args()
 
+    # 设置输出管理器
+    output_mgr = setup_output_directories(args)
+
     # 配置日志到统一日志目录
-    configure_logging(LogConfig.resolve_log_dir('db_analysis', config.REPORTS_DIR), args.verbose)
+    configure_logging(
+        LogConfig.resolve_log_dir('db_analysis', config.REPORTS_DIR),
+        args.verbose,
+        task_log_dir=output_mgr.get_path('logs'),
+    )
 
     logger.info("开始数据库分析（增强版）")
     logger.info("=" * 60)
+
+    if args.verbose:
+        output_mgr.print_summary()
 
     # 检查数据库
     db_path = Path(config.DATABASE_PATH)
@@ -488,9 +502,6 @@ def main():
         logger.error("数据库不存在: %s", db_path)
         logger.error("请先运行 update_db.py 或 main.py 获取数据")
         return 1
-
-    # 设置输出管理器 - 恢复使用setup_output_directories函数
-    output_mgr = setup_output_directories(args)
 
     # 获取数据列表
     def get_all_fund_ids():
@@ -521,43 +532,48 @@ def main():
         args.output_html = config.OUTPUT_HTML_NAV_CURVE  # 使用配置默认值
 
     # 1. 分析绩效指标
-    performance_results = analyze_performance(
-        args.funds, 
-        args.indices, 
-        output_mgr
-    )
+    with log_time("绩效分析", logger):
+        performance_results = analyze_performance(
+            args.funds,
+            args.indices,
+            output_mgr
+        )
 
     # 2. 分析持有期收益
     holding_results = {}
     if not args.no_holding and args.funds:
-        holding_results = analyze_holding_periods(
-            args.funds,
-            args.periods,
-            output_mgr,
-            args.output_html,
-            args.organize_by_fund
-        )
+        with log_time("持有期分析", logger):
+            holding_results = analyze_holding_periods(
+                args.funds,
+                args.periods,
+                output_mgr,
+                args.output_html,
+                args.organize_by_fund
+            )
 
     # 3. 生成图表
     if not args.no_charts and args.funds:
-        generate_charts(
-            args.funds, 
-            output_mgr, 
-            args.output_html,
-            args.organize_by_fund
-        )
+        with log_time("图表生成", logger):
+            generate_charts(
+                args.funds,
+                output_mgr,
+                args.output_html,
+                args.organize_by_fund
+            )
 
     # 4. 生成绩效对比图
     if not args.no_performance_chart and args.funds and len(args.funds) > 1:
-        generate_performance_comparison(args.funds, output_mgr)
+        with log_time("绩效对比图", logger):
+            generate_performance_comparison(args.funds, output_mgr)
 
     # 5. 创建摘要报告
-    create_summary_report(
-        output_mgr,
-        len(args.funds) if args.funds else 0,
-        len(args.indices) if args.indices else 0,
-        len(holding_results)
-    )
+    with log_time("摘要报告", logger):
+        create_summary_report(
+            output_mgr,
+            len(args.funds) if args.funds else 0,
+            len(args.indices) if args.indices else 0,
+            len(holding_results)
+        )
 
     # 输出总结
     logger.info("=" * 60)

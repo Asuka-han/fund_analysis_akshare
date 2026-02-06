@@ -5,8 +5,8 @@ Excel 数据导入脚本
 将 Excel 格式的基金日频数据导入到数据库
 
 使用示例：
-测试文件在fund_analysis_project\data\test_fund_data.xlsx
-python scripts/import_excel_to_db.py --input 路径 --dry-run
+测试文件在data\test_fund_data.xlsx
+python scripts/import_excel_to_db.py --input data/test_fund_data.xlsx --dry-run
 """
 
 import sys
@@ -36,16 +36,22 @@ from src.utils.database import fund_db
 from src.utils.fund_code_manager import fund_code_manager
 from src.utils.output_manager import get_output_manager
 from src.utils.logger_config import LogConfig
-from src.utils.logger import get_logger
+from src.utils.logger import get_logger, log_time
 import config
 
 # 日志配置，稍后根据输出目录绑定文件
 logger = get_logger(__name__)
 
 
-def configure_logging(log_dir: Path, verbose: bool = False):
+def configure_logging(log_dir: Path, verbose: bool = False, task_log_dir: Path = None):
     level = logging.DEBUG if verbose else logging.INFO
-    LogConfig.setup_root_logger(log_dir=log_dir, level=level, script_name="excel_import")
+    LogConfig.setup_root_logger(
+        log_dir=log_dir,
+        level=level,
+        script_name="excel_import",
+        base_dir=config.REPORTS_DIR,
+        task_log_dir=task_log_dir,
+    )
 
 
 class ExcelImporter:
@@ -175,7 +181,7 @@ class ExcelImporter:
             return df
             
         except Exception as e:
-            logger.error(f"读取 Excel 数据失败: {e}")
+            logger.error(f"读取 Excel 数据失败: {e}", exc_info=True)
             return None
     
     def preprocess_data(self, df: pd.DataFrame, mapping: Dict[str, str]) -> Tuple[pd.DataFrame, List[str]]:
@@ -459,7 +465,7 @@ class ExcelImporter:
                 return 'success'
                 
         except Exception as e:
-            logger.error(f"导入单行数据失败: {e}")
+            logger.error(f"导入单行数据失败: {e}", exc_info=True)
             return 'failed'
     
     def generate_report(self, stats: Dict[str, Any], import_mode: str, 
@@ -587,7 +593,11 @@ def main():
 
     start_time = datetime.now()
     output_manager = get_output_manager('import_excel_to_db', base_dir=config.REPORTS_DIR, use_timestamp=True)
-    configure_logging(LogConfig.resolve_log_dir('excel_import', config.REPORTS_DIR), args.verbose)
+    configure_logging(
+        LogConfig.resolve_log_dir('excel_import', config.REPORTS_DIR),
+        args.verbose,
+        task_log_dir=output_manager.get_path('logs'),
+    )
     
     # 初始化导入器
     importer = ExcelImporter(db_path=args.db_path)
@@ -603,10 +613,11 @@ def main():
     logger.info(f"模式: {args.mode}, 试运行: {args.dry_run}")
     
     # 读取 Excel 数据
-    df = importer.read_excel_data(file_path, args.sheet)
-    if df is None:
-        logger.error("读取 Excel 数据失败")
-        sys.exit(1)
+    with log_time("读取Excel数据", logger):
+        df = importer.read_excel_data(file_path, args.sheet)
+        if df is None:
+            logger.error("读取 Excel 数据失败")
+            sys.exit(1)
     
     # 检测列名
     column_mapping = importer.detect_column_names(df)
@@ -622,11 +633,12 @@ def main():
     duplicate_stats = importer.check_duplicates(processed_df)
     
     # 导入到数据库
-    import_stats = importer.import_to_database(
-        processed_df, 
-        mode=args.mode,
-        dry_run=args.dry_run
-    )
+    with log_time("导入数据库", logger):
+        import_stats = importer.import_to_database(
+            processed_df,
+            mode=args.mode,
+            dry_run=args.dry_run
+        )
     
     # 合并统计信息
     import_stats['duplicate_stats'] = duplicate_stats

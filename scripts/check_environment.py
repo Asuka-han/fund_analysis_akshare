@@ -66,7 +66,8 @@ def main():
     LogConfig.setup_root_logger(
         LogConfig.resolve_log_dir('check_environment', config.REPORTS_DIR),
         level=logging.INFO,
-        script_name='check_environment'
+        script_name='check_environment',
+        base_dir=config.REPORTS_DIR,
     )
 
     logger.info("检查基金分析项目环境依赖")

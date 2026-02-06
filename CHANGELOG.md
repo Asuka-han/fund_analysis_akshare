@@ -1,7 +1,14 @@
 # CHANGELOG
 
-## 版本信息
-- 当前版本：v1.2
+
+## 目录
+- [版本V1.2](#Version-v12)
+- [版本V1.3](#Version-v13)
+
+
+
+
+## Version-v1.2
 - 发布日期：2026-01-29
 
 ## 更新内容
@@ -33,3 +40,41 @@
 
 ### Environment
 - 新增/使用依赖：`openpyxl`（用于样式化写Excel）。
+
+
+
+
+## Version-v1.3
+- 发布日期：2026-02-05
+
+## 更新内容
+### Added
+- 日志体系：新增统一日志配置、错误/性能日志汇总与日志目录规范化支持。
+- 持有期模拟：新增按自然日持有期计算、非交易日向前回退、期末无效买入点过滤。
+- 环境变量：新增输出根目录与年化基准可配置项。
+
+### Changed
+- 输出路径：数据库与报告目录可随调用方工作目录或环境变量指定。
+- 年化处理：支持交易日（252）与自然日（365）作为可切换的年化基准。
+
+## 更新参数
+用于控制输出根目录、年化基准和日志格式：
+
+- `FUND_ANALYSIS_ROOT`
+    - 作用：指定数据库与 reports 的输出根目录。
+    - 示例：
+    1. 设置环境变量
+    `$env:FUND_ANALYSIS_ROOT = "地址"`（临时生效）
+    `[Environment]::SetEnvironmentVariable("FUND_ANALYSIS_ROOT", "地址", "User")`（永久设置）
+    `[Environment]::SetEnvironmentVariable("FUND_ANALYSIS_ROOT", $null, "User")`（删除永久配置）
+    2. 运行你的代码
+    `python main.py`
+    - 说明：未设置时会自动存到运行代码时的当前工作目录
+- `ANNUALIZATION_DAYS`
+    - 作用：控制年化基准天数（如 252 或 365）。
+    - 示例：`ANNUALIZATION_DAYS=365`
+    - 说明：未设置时默认使用 `TRADING_DAYS`（252）。
+- `LOG_FORMAT`
+    - 作用：控制日志输出格式。
+    - 示例：`LOG_FORMAT=json`
+    - 说明：默认文本格式，设置为 `json` 输出结构化日志。
