@@ -451,3 +451,6 @@ REPORTS_RETENTION_DAYS = int(os.getenv("REPORTS_RETENTION_DAYS", "7"))
 - 确保有足够磁盘空间存储数据和图表文件
 - 对于Excel导入问题，检查Excel文件格式是否符合要求（必需列：date、nav或cumulative_nav）
 - 对于数据库问题，可以尝试重置数据库：`python reset_database.py reset`
+
+
+![Star History Chart](https://api.star-history.com/svg?repos=gohugoio/hugo&type=Date)
